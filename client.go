@@ -247,7 +247,8 @@ type CredentialResponse struct {
 
 // CreateCredential creates a new credential
 func (c *Client) CreateCredential() (*CredentialResponse, error) {
-	req, err := c.newRequest("POST", "/credentials", nil)
+	// Send an empty object as the request body since the API requires a body
+	req, err := c.newRequest("POST", "/credentials", map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
