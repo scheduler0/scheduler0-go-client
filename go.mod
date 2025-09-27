@@ -1,4 +1,4 @@
-module scheduler0-go-client
+module github.com/scheduler0/scheduler0-go-client
 
 go 1.23
 
