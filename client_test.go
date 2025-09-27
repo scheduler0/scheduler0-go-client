@@ -10,6 +10,36 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Helper function to create a test client with API key authentication
+func createTestAPIClient(server *httptest.Server) *Client {
+	u, _ := url.Parse(server.URL)
+	client, _ := NewClient(server.URL, "v1",
+		WithAPIKey("mock-api-key", "mock-api-secret"),
+		WithAccountID("123"))
+	client.BaseURL = u
+	client.HTTPClient = server.Client()
+	return client
+}
+
+// Helper function to create a test client with basic authentication
+func createTestBasicAuthClient(server *httptest.Server) *Client {
+	u, _ := url.Parse(server.URL)
+	client, _ := NewClient(server.URL, "v1",
+		WithBasicAuth("testuser", "testpass"))
+	client.BaseURL = u
+	client.HTTPClient = server.Client()
+	return client
+}
+
+// Helper function to create a test client without authentication
+func createTestNoAuthClient(server *httptest.Server) *Client {
+	u, _ := url.Parse(server.URL)
+	client, _ := NewClient(server.URL, "v1")
+	client.BaseURL = u
+	client.HTTPClient = server.Client()
+	return client
+}
+
 func TestListCredentials(t *testing.T) {
 	// Prepare mock response
 	mockResponse := PaginatedCredentialsResponse{
@@ -40,25 +70,20 @@ func TestListCredentials(t *testing.T) {
 		assert.Equal(t, "/api/v1/credentials", r.URL.Path)
 		assert.Equal(t, "mock-api-key", r.Header.Get("X-API-Key"))
 		assert.Equal(t, "mock-api-secret", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
+		// Check query parameters
+		assert.Equal(t, "10", r.URL.Query().Get("limit"))
+		assert.Equal(t, "0", r.URL.Query().Get("offset"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
-	// Parse mock URL
-	u, _ := url.Parse(server.URL)
+	// Create client using helper
+	client := createTestAPIClient(server)
 
-	// Create client
-	client := &Client{
-		BaseURL:    u,
-		HTTPClient: server.Client(),
-		APIKey:     "mock-api-key",
-		APISecret:  "mock-api-secret",
-		Version:    "v1",
-	}
-
-	// Make call
-	result, err := client.ListCredentials()
+	// Make call with parameters
+	result, err := client.ListCredentials(10, 0, "date_created", "desc")
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -80,19 +105,15 @@ func TestCreateCredential(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/credentials", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "mock-api-key", r.Header.Get("X-API-Key"))
+		assert.Equal(t, "mock-api-secret", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
-	u, _ := url.Parse(server.URL)
-	client := &Client{
-		BaseURL:    u,
-		HTTPClient: server.Client(),
-		APIKey:     "mock-api-key",
-		APISecret:  "mock-api-secret",
-		Version:    "v1",
-	}
+	client := createTestAPIClient(server)
 
 	result, err := client.CreateCredential()
 	assert.NoError(t, err)
@@ -115,19 +136,15 @@ func TestGetCredential(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/credentials/1", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "mock-api-key", r.Header.Get("X-API-Key"))
+		assert.Equal(t, "mock-api-secret", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
-	u, _ := url.Parse(server.URL)
-	client := &Client{
-		BaseURL:    u,
-		HTTPClient: server.Client(),
-		APIKey:     "mock-api-key",
-		APISecret:  "mock-api-secret",
-		Version:    "v1",
-	}
+	client := createTestAPIClient(server)
 
 	result, err := client.GetCredential("1")
 	assert.NoError(t, err)
@@ -238,7 +255,7 @@ func TestListExecutions(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListExecutions()
+	result, err := client.ListExecutions("2025-01-01T00:00:00Z", "2025-01-01T23:59:59Z", 0, 0, 10, 0)
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -264,7 +281,6 @@ func TestListExecutors(t *testing.T) {
 					Type:             "cloud_function",
 					Region:           "us-west-1",
 					CloudProvider:    "aws",
-					FilePath:         "/path/to/function",
 					CloudResourceURL: "https://example.com/function",
 				},
 			},
@@ -288,7 +304,7 @@ func TestListExecutors(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListExecutors()
+	result, err := client.ListExecutors(10, 0, "date_created", "desc")
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -304,7 +320,6 @@ func TestCreateExecutor(t *testing.T) {
 			Type:             "cloud_function",
 			Region:           "us-west-1",
 			CloudProvider:    "aws",
-			FilePath:         "/path/to/function",
 			CloudResourceURL: "https://example.com/function",
 		},
 	}
@@ -331,7 +346,6 @@ func TestCreateExecutor(t *testing.T) {
 		Type:             "cloud_function",
 		Region:           "us-west-1",
 		CloudProvider:    "aws",
-		FilePath:         "/path/to/function",
 		CloudResourceURL: "https://example.com/function",
 	}
 
@@ -350,7 +364,6 @@ func TestGetExecutor(t *testing.T) {
 			Type:             "cloud_function",
 			Region:           "us-west-1",
 			CloudProvider:    "aws",
-			FilePath:         "/path/to/function",
 			CloudResourceURL: "https://example.com/function",
 		},
 	}
@@ -387,7 +400,6 @@ func TestUpdateExecutor(t *testing.T) {
 			Type:             "cloud_function",
 			Region:           "us-west-1",
 			CloudProvider:    "aws",
-			FilePath:         "/path/to/function",
 			CloudResourceURL: "https://example.com/function",
 		},
 	}
@@ -414,7 +426,6 @@ func TestUpdateExecutor(t *testing.T) {
 		Type:             "cloud_function",
 		Region:           "us-west-1",
 		CloudProvider:    "aws",
-		FilePath:         "/path/to/function",
 		CloudResourceURL: "https://example.com/function",
 	}
 
@@ -462,7 +473,7 @@ func TestListProjects(t *testing.T) {
 					ID:          "proj-1",
 					Name:        "Test Project",
 					Description: "Test Description",
-					CreatedAt:   "2025-01-01T00:00:00Z",
+					DateCreated: "2025-01-01T00:00:00Z",
 				},
 			},
 		},
@@ -485,7 +496,7 @@ func TestListProjects(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListProjects()
+	result, err := client.ListProjects(10, 0)
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -499,7 +510,7 @@ func TestCreateProject(t *testing.T) {
 			ID:          "proj-1",
 			Name:        "New Project",
 			Description: "New Description",
-			CreatedAt:   "2025-01-01T00:00:00Z",
+			DateCreated: "2025-01-01T00:00:00Z",
 		},
 	}
 
@@ -538,7 +549,7 @@ func TestGetProject(t *testing.T) {
 			ID:          "proj-1",
 			Name:        "Get Project",
 			Description: "Get Description",
-			CreatedAt:   "2025-01-01T00:00:00Z",
+			DateCreated: "2025-01-01T00:00:00Z",
 		},
 	}
 
@@ -572,7 +583,7 @@ func TestUpdateProject(t *testing.T) {
 			ID:          "proj-1",
 			Name:        "Updated Project",
 			Description: "Updated Description",
-			CreatedAt:   "2025-01-01T00:00:00Z",
+			DateCreated: "2025-01-01T00:00:00Z",
 		},
 	}
 
@@ -638,15 +649,15 @@ func TestListJobs(t *testing.T) {
 			Limit:  10,
 			Jobs: []Job{
 				{
-					ID:          "job-1",
-					ProjectID:   "proj-1",
-					Description: "Test Job",
-					ExecutorID:  "exec-1",
-					Data:        "job data",
-					Spec:        "0 30 * * * *",
-					StartDate:   "2025-01-01T00:00:00Z",
-					EndDate:     "2025-12-31T00:00:00Z",
-					Timezone:    "UTC",
+					ID:         1,
+					AccountID:  123,
+					ProjectID:  1,
+					Data:       "job data",
+					ExecutorID: &[]int64{1}[0],
+					Spec:       "0 30 * * * *",
+					StartDate:  "2025-01-01T00:00:00Z",
+					EndDate:    "2025-12-31T00:00:00Z",
+					Timezone:   "UTC",
 				},
 			},
 		},
@@ -669,26 +680,26 @@ func TestListJobs(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListJobs()
+	result, err := client.ListJobs("proj-1", 10, 0, "date_created", "desc")
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
-	assert.Equal(t, "Test Job", result.Data.Jobs[0].Description)
+	assert.Equal(t, "job data", result.Data.Jobs[0].Data)
 }
 
 func TestCreateJob(t *testing.T) {
 	mockResponse := JobResponse{
 		Success: true,
 		Data: Job{
-			ID:          "job-1",
-			ProjectID:   "proj-1",
-			Description: "New Job",
-			ExecutorID:  "exec-1",
-			Data:        "job data",
-			Spec:        "0 30 * * * *",
-			StartDate:   "2025-01-01T00:00:00Z",
-			EndDate:     "2025-12-31T00:00:00Z",
-			Timezone:    "UTC",
+			ID:         1,
+			AccountID:  123,
+			ProjectID:  1,
+			Data:       "job data",
+			ExecutorID: &[]int64{1}[0],
+			Spec:       "0 30 * * * *",
+			StartDate:  "2025-01-01T00:00:00Z",
+			EndDate:    "2025-12-31T00:00:00Z",
+			Timezone:   "UTC",
 		},
 	}
 
@@ -710,32 +721,32 @@ func TestCreateJob(t *testing.T) {
 	}
 
 	body := &JobRequestBody{
-		Description: "New Job",
-		Timezone:    "UTC",
-		CallbackURL: "https://example.com/callback",
-		StartDate:   "2025-01-01T00:00:00Z",
-		EndDate:     "2025-12-31T00:00:00Z",
+		ProjectID: 1,
+		Timezone:  "UTC",
+		Data:      "New Job",
+		StartDate: "2025-01-01T00:00:00Z",
+		EndDate:   "2025-12-31T00:00:00Z",
 	}
 
 	result, err := client.CreateJob(body)
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
-	assert.Equal(t, "New Job", result.Data.Description)
+	assert.Equal(t, "job data", result.Data.Data)
 }
 
 func TestGetJob(t *testing.T) {
 	mockResponse := JobResponse{
 		Success: true,
 		Data: Job{
-			ID:          "job-1",
-			ProjectID:   "proj-1",
-			Description: "Get Job",
-			ExecutorID:  "exec-1",
-			Data:        "job data",
-			Spec:        "0 30 * * * *",
-			StartDate:   "2025-01-01T00:00:00Z",
-			EndDate:     "2025-12-31T00:00:00Z",
-			Timezone:    "UTC",
+			ID:         1,
+			AccountID:  123,
+			ProjectID:  1,
+			Data:       "job data",
+			ExecutorID: &[]int64{1}[0],
+			Spec:       "0 30 * * * *",
+			StartDate:  "2025-01-01T00:00:00Z",
+			EndDate:    "2025-12-31T00:00:00Z",
+			Timezone:   "UTC",
 		},
 	}
 
@@ -759,22 +770,22 @@ func TestGetJob(t *testing.T) {
 	result, err := client.GetJob("job-1")
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
-	assert.Equal(t, "Get Job", result.Data.Description)
+	assert.Equal(t, "job data", result.Data.Data)
 }
 
 func TestUpdateJob(t *testing.T) {
 	mockResponse := JobResponse{
 		Success: true,
 		Data: Job{
-			ID:          "job-1",
-			ProjectID:   "proj-1",
-			Description: "Updated Job",
-			ExecutorID:  "exec-1",
-			Data:        "job data",
-			Spec:        "0 45 * * * *",
-			StartDate:   "2025-01-01T00:00:00Z",
-			EndDate:     "2025-12-31T00:00:00Z",
-			Timezone:    "UTC",
+			ID:         1,
+			AccountID:  123,
+			ProjectID:  1,
+			Data:       "job data",
+			ExecutorID: &[]int64{1}[0],
+			Spec:       "0 45 * * * *",
+			StartDate:  "2025-01-01T00:00:00Z",
+			EndDate:    "2025-12-31T00:00:00Z",
+			Timezone:   "UTC",
 		},
 	}
 
@@ -796,9 +807,9 @@ func TestUpdateJob(t *testing.T) {
 	}
 
 	body := &JobUpdateRequestBody{
-		ProjectID:   "proj-1",
-		Spec:        "0 45 * * * *",
-		CallbackURL: "https://example.com/callback",
+		ProjectID: 1,
+		Spec:      "0 45 * * * *",
+		Data:      "Updated Job",
 	}
 
 	result, err := client.UpdateJob("job-1", body)
@@ -879,4 +890,90 @@ func TestHealthcheck(t *testing.T) {
 	assert.True(t, result.Success)
 	assert.Equal(t, "127.0.0.1:7070", result.Data.LeaderAddress)
 	assert.Equal(t, "Leader", result.Data.RaftStats.State)
+}
+
+// Test new authentication methods
+
+func TestNewClientWithOptions(t *testing.T) {
+	// Test API key authentication
+	client, err := NewClient("https://api.test.com", "v1",
+		WithAPIKey("test-key", "test-secret"),
+		WithAccountID("456"))
+	assert.NoError(t, err)
+	assert.Equal(t, "test-key", client.APIKey)
+	assert.Equal(t, "test-secret", client.APISecret)
+	assert.Equal(t, "456", client.AccountID)
+
+	// Test basic authentication
+	client, err = NewClient("https://api.test.com", "v1",
+		WithBasicAuth("user", "pass"))
+	assert.NoError(t, err)
+	assert.Equal(t, "user", client.Username)
+	assert.Equal(t, "pass", client.Password)
+
+	// Test no authentication
+	client, err = NewClient("https://api.test.com", "v1")
+	assert.NoError(t, err)
+	assert.Equal(t, "", client.APIKey)
+	assert.Equal(t, "", client.Username)
+}
+
+func TestConvenienceFunctions(t *testing.T) {
+	// Test NewAPIClient
+	client, err := NewAPIClient("https://api.test.com", "v1", "key", "secret")
+	assert.NoError(t, err)
+	assert.Equal(t, "key", client.APIKey)
+	assert.Equal(t, "secret", client.APISecret)
+
+	// Test NewAPIClientWithAccount
+	client, err = NewAPIClientWithAccount("https://api.test.com", "v1", "key", "secret", "123")
+	assert.NoError(t, err)
+	assert.Equal(t, "key", client.APIKey)
+	assert.Equal(t, "secret", client.APISecret)
+	assert.Equal(t, "123", client.AccountID)
+
+	// Test NewBasicAuthClient
+	client, err = NewBasicAuthClient("https://api.test.com", "v1", "user", "pass")
+	assert.NoError(t, err)
+	assert.Equal(t, "user", client.Username)
+	assert.Equal(t, "pass", client.Password)
+}
+
+func TestBasicAuthClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check basic auth
+		username, password, ok := r.BasicAuth()
+		assert.True(t, ok)
+		assert.Equal(t, "testuser", username)
+		assert.Equal(t, "testpass", password)
+		assert.Equal(t, "cmd", r.Header.Get("X-Peer"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := createTestBasicAuthClient(server)
+
+	// Test that basic auth is set correctly
+	assert.Equal(t, "testuser", client.Username)
+	assert.Equal(t, "testpass", client.Password)
+}
+
+func TestNoAuthClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Should not have any auth headers
+		assert.Equal(t, "", r.Header.Get("X-API-Key"))
+		assert.Equal(t, "", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "", r.Header.Get("X-Account-ID"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "success": true})
+	}))
+	defer server.Close()
+
+	client := createTestNoAuthClient(server)
+
+	// Test healthcheck without auth
+	result, err := client.Healthcheck()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
 }

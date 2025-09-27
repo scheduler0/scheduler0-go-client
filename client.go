@@ -16,21 +16,74 @@ type Client struct {
 	APIKey     string
 	APISecret  string
 	Version    string
+	// Basic Auth for peer communication
+	Username string
+	Password string
+	// Account ID for most endpoints
+	AccountID string
 }
 
-func NewClient(baseURL, version, apiKey, apiSecret string) (*Client, error) {
+func NewClient(baseURL, version string, options ...ClientOption) (*Client, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Client{
+	client := &Client{
 		BaseURL:    u,
 		HTTPClient: &http.Client{},
-		APIKey:     apiKey,
-		APISecret:  apiSecret,
 		Version:    version,
-	}, nil
+	}
+
+	// Apply options
+	for _, option := range options {
+		option(client)
+	}
+
+	return client, nil
+}
+
+// ClientOption is a function that configures a Client
+type ClientOption func(*Client)
+
+// WithAPIKey sets the API key and secret for authentication
+func WithAPIKey(apiKey, apiSecret string) ClientOption {
+	return func(c *Client) {
+		c.APIKey = apiKey
+		c.APISecret = apiSecret
+	}
+}
+
+// WithAccountID sets the account ID for requests
+func WithAccountID(accountID string) ClientOption {
+	return func(c *Client) {
+		c.AccountID = accountID
+	}
+}
+
+// WithBasicAuth sets the username and password for basic authentication
+func WithBasicAuth(username, password string) ClientOption {
+	return func(c *Client) {
+		c.Username = username
+		c.Password = password
+	}
+}
+
+// Convenience functions for common use cases
+
+// NewAPIClient creates a client with API key authentication
+func NewAPIClient(baseURL, version, apiKey, apiSecret string) (*Client, error) {
+	return NewClient(baseURL, version, WithAPIKey(apiKey, apiSecret))
+}
+
+// NewAPIClientWithAccount creates a client with API key authentication and account ID
+func NewAPIClientWithAccount(baseURL, version, apiKey, apiSecret, accountID string) (*Client, error) {
+	return NewClient(baseURL, version, WithAPIKey(apiKey, apiSecret), WithAccountID(accountID))
+}
+
+// NewBasicAuthClient creates a client with basic authentication for peer communication
+func NewBasicAuthClient(baseURL, version, username, password string) (*Client, error) {
+	return NewClient(baseURL, version, WithBasicAuth(username, password))
 }
 
 func (c *Client) newRequest(method, endpoint string, body interface{}) (*http.Request, error) {
@@ -53,8 +106,71 @@ func (c *Client) newRequest(method, endpoint string, body interface{}) (*http.Re
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-API-Key", c.APIKey)
-	req.Header.Set("X-API-Secret", c.APISecret)
+
+	// Set authentication based on client type
+	if c.Username != "" && c.Password != "" {
+		// Basic Auth for peer communication
+		req.SetBasicAuth(c.Username, c.Password)
+		req.Header.Set("X-Peer", "cmd")
+	} else if c.APIKey != "" && c.APISecret != "" {
+		// API Key + Secret authentication
+		req.Header.Set("X-API-Key", c.APIKey)
+		req.Header.Set("X-API-Secret", c.APISecret)
+	}
+
+	// Add account ID if available
+	if c.AccountID != "" {
+		req.Header.Set("X-Account-ID", c.AccountID)
+	}
+
+	return req, nil
+}
+
+func (c *Client) newRequestWithQuery(method, endpoint string, body interface{}, queryParams map[string]string) (*http.Request, error) {
+	versionPrefix := fmt.Sprintf("/api/%s/", c.Version)
+
+	rel := &url.URL{Path: path.Join(fmt.Sprintf("%s%s", c.BaseURL.Path, versionPrefix), endpoint)}
+	u := c.BaseURL.ResolveReference(rel)
+
+	// Add query parameters
+	if len(queryParams) > 0 {
+		q := u.Query()
+		for key, value := range queryParams {
+			q.Set(key, value)
+		}
+		u.RawQuery = q.Encode()
+	}
+
+	var buf bytes.Buffer
+	if body != nil {
+		err := json.NewEncoder(&buf).Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, u.String(), &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Set authentication based on client type
+	if c.Username != "" && c.Password != "" {
+		// Basic Auth for peer communication
+		req.SetBasicAuth(c.Username, c.Password)
+		req.Header.Set("X-Peer", "cmd")
+	} else if c.APIKey != "" && c.APISecret != "" {
+		// API Key + Secret authentication
+		req.Header.Set("X-API-Key", c.APIKey)
+		req.Header.Set("X-API-Secret", c.APISecret)
+	}
+
+	// Add account ID if available
+	if c.AccountID != "" {
+		req.Header.Set("X-Account-ID", c.AccountID)
+	}
 
 	return req, nil
 }
@@ -77,8 +193,20 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 	return nil
 }
 
-func (c *Client) ListCredentials() (*PaginatedCredentialsResponse, error) {
-	req, err := c.newRequest("GET", "/credentials", nil)
+func (c *Client) ListCredentials(limit, offset int, orderBy, orderByDirection string) (*PaginatedCredentialsResponse, error) {
+	queryParams := map[string]string{
+		"limit":  fmt.Sprintf("%d", limit),
+		"offset": fmt.Sprintf("%d", offset),
+	}
+
+	if orderBy != "" {
+		queryParams["orderBy"] = orderBy
+	}
+	if orderByDirection != "" {
+		queryParams["orderByDirection"] = orderByDirection
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/credentials", nil, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -204,9 +332,23 @@ type PaginatedExecutionsResponse struct {
 	} `json:"data"`
 }
 
-// ListExecutions retrieves all job executions
-func (c *Client) ListExecutions() (*PaginatedExecutionsResponse, error) {
-	req, err := c.newRequest("GET", "/executions", nil)
+// ListExecutions retrieves job executions with query parameters
+func (c *Client) ListExecutions(startDate, endDate string, projectID, jobID int64, limit, offset int) (*PaginatedExecutionsResponse, error) {
+	queryParams := map[string]string{
+		"startDate": startDate,
+		"endDate":   endDate,
+		"limit":     fmt.Sprintf("%d", limit),
+		"offset":    fmt.Sprintf("%d", offset),
+	}
+
+	if projectID > 0 {
+		queryParams["projectId"] = fmt.Sprintf("%d", projectID)
+	}
+	if jobID > 0 {
+		queryParams["jobId"] = fmt.Sprintf("%d", jobID)
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/executions", nil, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -221,13 +363,24 @@ func (c *Client) ListExecutions() (*PaginatedExecutionsResponse, error) {
 
 // Executor represents a job executor
 type Executor struct {
-	ID               int    `json:"id"`
-	Name             string `json:"name"`
-	Type             string `json:"type"`
-	Region           string `json:"region"`
-	CloudProvider    string `json:"cloudProvider"`
-	FilePath         string `json:"filePath"`
-	CloudResourceURL string `json:"cloudResourceUrl"`
+	ID               int64   `json:"id"`
+	AccountID        int64   `json:"accountId"`
+	Name             string  `json:"name"`
+	Type             string  `json:"type"`
+	Region           string  `json:"region"`
+	CloudProvider    string  `json:"cloudProvider"`
+	CloudResourceURL string  `json:"cloudResourceUrl"`
+	CloudAPIKey      string  `json:"cloudApiKey"`
+	CloudAPISecret   string  `json:"cloudApiSecret"`
+	WebhookURL       string  `json:"webhookUrl"`
+	WebhookSecret    string  `json:"webhookSecret"`
+	WebhookMethod    string  `json:"webhookMethod"`
+	DateCreated      string  `json:"dateCreated"`
+	DateModified     *string `json:"dateModified"`
+	DateDeleted      *string `json:"dateDeleted"`
+	CreatedBy        string  `json:"createdBy"`
+	ModifiedBy       *string `json:"modifiedBy"`
+	DeletedBy        *string `json:"deletedBy"`
 }
 
 // ExecutorResponse represents the response for a single executor
@@ -242,8 +395,12 @@ type ExecutorRequestBody struct {
 	Type             string `json:"type"`
 	Region           string `json:"region"`
 	CloudProvider    string `json:"cloudProvider"`
-	FilePath         string `json:"filePath"`
 	CloudResourceURL string `json:"cloudResourceUrl"`
+	CloudAPIKey      string `json:"cloudApiKey,omitempty"`
+	CloudAPISecret   string `json:"cloudApiSecret,omitempty"`
+	WebhookURL       string `json:"webhookUrl,omitempty"`
+	WebhookSecret    string `json:"webhookSecret,omitempty"`
+	WebhookMethod    string `json:"webhookMethod,omitempty"`
 }
 
 // PaginatedExecutorsResponse represents a paginated list of executors
@@ -257,9 +414,21 @@ type PaginatedExecutorsResponse struct {
 	} `json:"data"`
 }
 
-// ListExecutors retrieves all executors
-func (c *Client) ListExecutors() (*PaginatedExecutorsResponse, error) {
-	req, err := c.newRequest("GET", "/executors", nil)
+// ListExecutors retrieves all executors with optional query parameters
+func (c *Client) ListExecutors(limit, offset int, orderBy, orderByDirection string) (*PaginatedExecutorsResponse, error) {
+	queryParams := map[string]string{
+		"limit":  fmt.Sprintf("%d", limit),
+		"offset": fmt.Sprintf("%d", offset),
+	}
+
+	if orderBy != "" {
+		queryParams["orderBy"] = orderBy
+	}
+	if orderByDirection != "" {
+		queryParams["orderByDirection"] = orderByDirection
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/executors", nil, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -327,12 +496,82 @@ func (c *Client) DeleteExecutor(id string) error {
 	return c.do(req, nil)
 }
 
+// Account represents an account
+type Account struct {
+	ID           int64            `json:"id"`
+	Name         string           `json:"name"`
+	Features     []AccountFeature `json:"features"`
+	DateCreated  string           `json:"dateCreated"`
+	DateModified *string          `json:"dateModified"`
+}
+
+// AccountFeature represents a feature associated with an account
+type AccountFeature struct {
+	AccountID int64  `json:"accountId"`
+	FeatureID int64  `json:"featureId"`
+	Feature   string `json:"feature"`
+}
+
+// AccountCreateRequestBody represents the request body for creating an account
+type AccountCreateRequestBody struct {
+	Name string `json:"name"`
+}
+
+// AccountResponse represents the response for a single account
+type AccountResponse struct {
+	Success bool    `json:"success"`
+	Data    Account `json:"data"`
+}
+
+// Feature represents a feature
+type Feature struct {
+	ID           int64   `json:"id"`
+	Name         string  `json:"name"`
+	DateCreated  string  `json:"dateCreated"`
+	DateModified *string `json:"dateModified"`
+}
+
+// FeatureRequest represents a request to add/remove a feature
+type FeatureRequest struct {
+	FeatureID int64 `json:"featureId"`
+}
+
+// FeatureRequestResponse represents the response for feature operations
+type FeatureRequestResponse struct {
+	Success bool           `json:"success"`
+	Data    FeatureRequest `json:"data"`
+}
+
+// FeaturesResponse represents the response for listing features
+type FeaturesResponse struct {
+	Success bool      `json:"success"`
+	Data    []Feature `json:"data"`
+}
+
+// AsyncTask represents an async task
+type AsyncTask struct {
+	ID          int64  `json:"id"`
+	RequestID   string `json:"requestId"`
+	Input       string `json:"input"`
+	Output      string `json:"output"`
+	Service     string `json:"service"`
+	State       int    `json:"state"`
+	DateCreated string `json:"dateCreated"`
+}
+
+// AsyncTaskResponse represents the response for a single async task
+type AsyncTaskResponse struct {
+	Success bool      `json:"success"`
+	Data    AsyncTask `json:"data"`
+}
+
 // Project represents a project
 type Project struct {
 	ID          string `json:"id"`
+	AccountID   string `json:"accountId"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	CreatedAt   string `json:"date_created"`
+	DateCreated string `json:"date_created"`
 }
 
 // ProjectResponse represents the response for a single project
@@ -363,9 +602,14 @@ type PaginatedProjectsResponse struct {
 	} `json:"data"`
 }
 
-// ListProjects retrieves all projects
-func (c *Client) ListProjects() (*PaginatedProjectsResponse, error) {
-	req, err := c.newRequest("GET", "/projects", nil)
+// ListProjects retrieves all projects with optional query parameters
+func (c *Client) ListProjects(limit, offset int) (*PaginatedProjectsResponse, error) {
+	queryParams := map[string]string{
+		"limit":  fmt.Sprintf("%d", limit),
+		"offset": fmt.Sprintf("%d", offset),
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/projects", nil, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -435,15 +679,25 @@ func (c *Client) DeleteProject(id string) error {
 
 // Job represents a scheduled job
 type Job struct {
-	ID          string `json:"id"`
-	ProjectID   string `json:"projectId"`
-	Description string `json:"description"`
-	ExecutorID  string `json:"executorId"`
-	Data        string `json:"data"`
-	Spec        string `json:"spec"`
-	StartDate   string `json:"startDate"`
-	EndDate     string `json:"endDate"`
-	Timezone    string `json:"timezone"`
+	ID                int64   `json:"id,omitempty"`
+	AccountID         int64   `json:"accountId,omitempty"`
+	ProjectID         int64   `json:"projectId,omitempty"`
+	ExecutorID        *int64  `json:"executorId,omitempty"`
+	Data              string  `json:"data,omitempty"`
+	Spec              string  `json:"spec,omitempty"`
+	StartDate         string  `json:"startDate,omitempty"`
+	EndDate           string  `json:"endDate,omitempty"`
+	LastExecutionDate string  `json:"lastExecutionDate,omitempty"`
+	Timezone          string  `json:"timezone,omitempty"`
+	TimezoneOffset    int64   `json:"timezoneOffset,omitempty"`
+	RetryMax          int     `json:"retryMax,omitempty"`
+	ExecutionID       string  `json:"executionId,omitempty"`
+	Status            string  `json:"status,omitempty"`
+	DateCreated       string  `json:"dateCreated,omitempty"`
+	DateModified      *string `json:"dateModified,omitempty"`
+	CreatedBy         string  `json:"createdBy,omitempty"`
+	ModifiedBy        *string `json:"modifiedBy,omitempty"`
+	DeletedBy         *string `json:"deletedBy,omitempty"`
 }
 
 // JobResponse represents the response for a single job
@@ -454,18 +708,30 @@ type JobResponse struct {
 
 // JobRequestBody represents the request body for creating a job
 type JobRequestBody struct {
-	Description string `json:"description"`
-	Timezone    string `json:"timezone"`
-	CallbackURL string `json:"callback_url"`
-	StartDate   string `json:"start_date"`
-	EndDate     string `json:"end_date"`
+	ProjectID      int64  `json:"projectId"`
+	Timezone       string `json:"timezone"`
+	ExecutorID     *int64 `json:"executorId,omitempty"`
+	Data           string `json:"data,omitempty"`
+	Spec           string `json:"spec,omitempty"`
+	StartDate      string `json:"startDate,omitempty"`
+	EndDate        string `json:"endDate,omitempty"`
+	TimezoneOffset int64  `json:"timezoneOffset,omitempty"`
+	RetryMax       int    `json:"retryMax,omitempty"`
+	Status         string `json:"status,omitempty"`
 }
 
 // JobUpdateRequestBody represents the request body for updating a job
 type JobUpdateRequestBody struct {
-	ProjectID   string `json:"project_id"`
-	Spec        string `json:"spec"`
-	CallbackURL string `json:"callback_url"`
+	ProjectID      int64  `json:"projectId,omitempty"`
+	ExecutorID     *int64 `json:"executorId,omitempty"`
+	Data           string `json:"data,omitempty"`
+	Spec           string `json:"spec,omitempty"`
+	StartDate      string `json:"startDate,omitempty"`
+	EndDate        string `json:"endDate,omitempty"`
+	Timezone       string `json:"timezone,omitempty"`
+	TimezoneOffset int64  `json:"timezoneOffset,omitempty"`
+	RetryMax       int    `json:"retryMax,omitempty"`
+	Status         string `json:"status,omitempty"`
 }
 
 // PaginatedJobsResponse represents a paginated list of jobs
@@ -479,9 +745,22 @@ type PaginatedJobsResponse struct {
 	} `json:"data"`
 }
 
-// ListJobs retrieves all jobs
-func (c *Client) ListJobs() (*PaginatedJobsResponse, error) {
-	req, err := c.newRequest("GET", "/jobs", nil)
+// ListJobs retrieves all jobs with optional query parameters
+func (c *Client) ListJobs(projectID string, limit, offset int, orderBy, orderByDirection string) (*PaginatedJobsResponse, error) {
+	queryParams := map[string]string{
+		"projectId": projectID,
+		"limit":     fmt.Sprintf("%d", limit),
+		"offset":    fmt.Sprintf("%d", offset),
+	}
+
+	if orderBy != "" {
+		queryParams["orderBy"] = orderBy
+	}
+	if orderByDirection != "" {
+		queryParams["orderByDirection"] = orderByDirection
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/jobs", nil, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -549,6 +828,97 @@ func (c *Client) DeleteJob(id string) error {
 	return c.do(req, nil)
 }
 
+// Account Management Methods
+
+// CreateAccount creates a new account
+func (c *Client) CreateAccount(body *AccountCreateRequestBody) (*AccountResponse, error) {
+	req, err := c.newRequest("POST", "/accounts", body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result AccountResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetAccount retrieves a single account by ID
+func (c *Client) GetAccount(id string) (*AccountResponse, error) {
+	req, err := c.newRequest("GET", fmt.Sprintf("/accounts/%s", id), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result AccountResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// AddFeatureToAccount adds a feature to an account
+func (c *Client) AddFeatureToAccount(accountID string, body *FeatureRequest) (*FeatureRequestResponse, error) {
+	req, err := c.newRequest("PUT", fmt.Sprintf("/accounts/%s/feature", accountID), body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result FeatureRequestResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// RemoveFeatureFromAccount removes a feature from an account
+func (c *Client) RemoveFeatureFromAccount(accountID string, body *FeatureRequest) error {
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/accounts/%s/feature", accountID), body)
+	if err != nil {
+		return err
+	}
+
+	return c.do(req, nil)
+}
+
+// Feature Management Methods
+
+// ListFeatures retrieves all available features
+func (c *Client) ListFeatures() (*FeaturesResponse, error) {
+	req, err := c.newRequest("GET", "/features", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result FeaturesResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// AsyncTask Methods
+
+// GetAsyncTask retrieves an async task by request ID
+func (c *Client) GetAsyncTask(requestID string) (*AsyncTaskResponse, error) {
+	req, err := c.newRequest("GET", fmt.Sprintf("/async-tasks/%s", requestID), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result AsyncTaskResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // RaftStats represents the Raft cluster statistics
 type RaftStats struct {
 	AppliedIndex        string `json:"applied_index"`
@@ -584,12 +954,19 @@ type HealthcheckResponse struct {
 	Data    HealthcheckData `json:"data"`
 }
 
-// Healthcheck retrieves the current leader and raft stats
+// Healthcheck retrieves the current leader and raft stats (no authentication required)
 func (c *Client) Healthcheck() (*HealthcheckResponse, error) {
-	req, err := c.newRequest("GET", "/healthcheck", nil)
+	// Create a request without authentication for healthcheck
+	versionPrefix := fmt.Sprintf("/api/%s/", c.Version)
+	rel := &url.URL{Path: path.Join(fmt.Sprintf("%s%s", c.BaseURL.Path, versionPrefix), "healthcheck")}
+	u := c.BaseURL.ResolveReference(rel)
+
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Set("Content-Type", "application/json")
 
 	var result HealthcheckResponse
 	err = c.do(req, &result)
