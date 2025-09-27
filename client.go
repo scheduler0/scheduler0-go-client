@@ -232,11 +232,17 @@ type PaginatedCredentialsResponse struct {
 }
 
 type Credential struct {
-	ID        int    `json:"id"`
-	Archived  bool   `json:"archived"`
-	APIKey    string `json:"api_key"`
-	APISecret string `json:"api_secret"`
-	CreatedAt string `json:"date_created"`
+	ID           int     `json:"id"`
+	AccountID    string  `json:"accountId"`
+	Archived     bool    `json:"archived"`
+	APIKey       string  `json:"apiKey"`
+	APISecret    string  `json:"apiSecret"`
+	DateCreated  string  `json:"dateCreated"`
+	DateModified *string `json:"dateModified"`
+	DateDeleted  *string `json:"dateDeleted"`
+	CreatedBy    string  `json:"createdBy"`
+	ModifiedBy   *string `json:"modifiedBy"`
+	DeletedBy    *string `json:"deletedBy"`
 }
 
 // CredentialResponse represents the response for a single credential
