@@ -233,7 +233,7 @@ type PaginatedCredentialsResponse struct {
 
 type Credential struct {
 	ID           int     `json:"id"`
-	AccountID    string  `json:"accountId"`
+	AccountID    int64   `json:"accountId"`
 	Archived     bool    `json:"archived"`
 	APIKey       string  `json:"apiKey"`
 	APISecret    string  `json:"apiSecret"`
