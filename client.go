@@ -134,11 +134,16 @@ func (c *Client) newRequestWithQuery(method, endpoint string, body interface{}, 
 
 	// Add query parameters
 	if len(queryParams) > 0 {
+		fmt.Printf("DEBUG: newRequestWithQuery - adding %d query params\n", len(queryParams))
 		q := u.Query()
 		for key, value := range queryParams {
+			fmt.Printf("DEBUG: Adding query param: %s=%s\n", key, value)
 			q.Set(key, value)
 		}
 		u.RawQuery = q.Encode()
+		fmt.Printf("DEBUG: Final encoded query string: %s\n", u.RawQuery)
+	} else {
+		fmt.Printf("DEBUG: newRequestWithQuery - no query params to add\n")
 	}
 
 	var buf bytes.Buffer
@@ -243,6 +248,7 @@ type Credential struct {
 	CreatedBy    string  `json:"createdBy"`
 	ModifiedBy   *string `json:"modifiedBy"`
 	DeletedBy    *string `json:"deletedBy"`
+	ArchivedBy   *string `json:"archivedBy"`
 }
 
 // CredentialResponse represents the response for a single credential
@@ -307,6 +313,20 @@ func (c *Client) DeleteCredential(id string) error {
 	return c.do(req, nil)
 }
 
+// ArchiveCredential archives a credential by ID
+func (c *Client) ArchiveCredential(id string, archivedBy string) error {
+	requestBody := map[string]string{
+		"archivedBy": archivedBy,
+	}
+
+	req, err := c.newRequest("POST", fmt.Sprintf("/credentials/%s/archive", id), requestBody)
+	if err != nil {
+		return err
+	}
+
+	return c.do(req, nil)
+}
+
 // Execution represents a job execution log
 type Execution struct {
 	ID                int    `json:"id"`
@@ -355,7 +375,14 @@ func (c *Client) ListExecutions(startDate, endDate string, projectID, jobID int6
 		queryParams["jobId"] = fmt.Sprintf("%d", jobID)
 	}
 
+	// Debug: Print what we're sending
+	fmt.Printf("DEBUG: ListExecutions called with startDate='%s', endDate='%s'\n", startDate, endDate)
+	fmt.Printf("DEBUG: Query params: %+v\n", queryParams)
+
 	req, err := c.newRequestWithQuery("GET", "/executions", nil, queryParams)
+	if req != nil {
+		fmt.Printf("DEBUG: Final URL: %s\n", req.URL.String())
+	}
 	if err != nil {
 		return nil, err
 	}
