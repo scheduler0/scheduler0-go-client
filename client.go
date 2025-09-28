@@ -574,11 +574,11 @@ type AsyncTaskResponse struct {
 
 // Project represents a project
 type Project struct {
-	ID          string `json:"id"`
-	AccountID   string `json:"accountId"`
+	ID          int64  `json:"id"`
+	AccountID   int64  `json:"accountId"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	DateCreated string `json:"date_created"`
+	DateCreated string `json:"dateCreated"`
 }
 
 // ProjectResponse represents the response for a single project
@@ -645,8 +645,8 @@ func (c *Client) CreateProject(body *ProjectRequestBody) (*ProjectResponse, erro
 }
 
 // GetProject retrieves a single project by ID
-func (c *Client) GetProject(id string) (*ProjectResponse, error) {
-	req, err := c.newRequest("GET", fmt.Sprintf("/projects/%s", id), nil)
+func (c *Client) GetProject(id int64) (*ProjectResponse, error) {
+	req, err := c.newRequest("GET", fmt.Sprintf("/projects/%d", id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -660,8 +660,8 @@ func (c *Client) GetProject(id string) (*ProjectResponse, error) {
 }
 
 // UpdateProject updates an existing project
-func (c *Client) UpdateProject(id string, body *ProjectUpdateRequestBody) (*ProjectResponse, error) {
-	req, err := c.newRequest("PUT", fmt.Sprintf("/projects/%s", id), body)
+func (c *Client) UpdateProject(id int64, body *ProjectUpdateRequestBody) (*ProjectResponse, error) {
+	req, err := c.newRequest("PUT", fmt.Sprintf("/projects/%d", id), body)
 	if err != nil {
 		return nil, err
 	}
@@ -675,8 +675,12 @@ func (c *Client) UpdateProject(id string, body *ProjectUpdateRequestBody) (*Proj
 }
 
 // DeleteProject deletes a project by ID
-func (c *Client) DeleteProject(id string) error {
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/projects/%s", id), nil)
+func (c *Client) DeleteProject(id int64, deletedBy string) error {
+	requestBody := map[string]string{
+		"deletedBy": deletedBy,
+	}
+
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/projects/%d", id), requestBody)
 	if err != nil {
 		return err
 	}
