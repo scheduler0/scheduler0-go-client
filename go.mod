@@ -2,7 +2,7 @@ module github.com/scheduler0/scheduler0-go-client
 
 go 1.23
 
-// Version v1.1.2 - Fixed Project ID types from string to int64
+// Version v1.1.3 - Added audit fields (createdBy, modifiedBy, deletedBy) to all request bodies
 
 require github.com/stretchr/testify v1.10.0
 

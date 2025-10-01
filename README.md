@@ -41,6 +41,7 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
 - **Jobs Management**
   - List jobs with pagination and ordering
   - Create new jobs with comprehensive scheduling options
+  - Batch create multiple jobs in a single request
   - Get job details
   - Update jobs
   - Delete jobs
@@ -58,6 +59,11 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
 ```bash
 go get github.com/scheduler0/scheduler0-go-client
 ```
+
+## API Documentation
+
+- **OpenAPI Specification**: [openapi.json](openapi.json) - Complete API specification
+- **Interactive Documentation**: Use tools like [Swagger UI](https://swagger.io/tools/swagger-ui/) to view the API documentation
 
 ## Authentication
 
@@ -238,7 +244,7 @@ err := client.DeleteProject("project-id")
 // List jobs with pagination and ordering
 jobs, err := client.ListJobs("project-id", 10, 0, "date_created", "desc")
 
-// Create a new job
+// Create a single job
 job := &scheduler0_go_client.JobRequestBody{
     ProjectID:     123,                    // Required
     Timezone:      "UTC",                  // Required
@@ -252,6 +258,27 @@ job := &scheduler0_go_client.JobRequestBody{
     Status:        "active",               // Optional
 }
 result, err := client.CreateJob(job)
+
+// Create multiple jobs in a single batch request
+jobs := []scheduler0_go_client.JobRequestBody{
+    {
+        ProjectID:     123,
+        Timezone:      "UTC",
+        Data:          "job 1 payload",
+        Spec:          "0 30 * * * *",
+        StartDate:     "2024-01-01T00:00:00Z",
+        RetryMax:      3,
+    },
+    {
+        ProjectID:     123,
+        Timezone:      "UTC",
+        Data:          "job 2 payload",
+        Spec:          "0 0 * * * *",
+        StartDate:     "2024-01-01T00:00:00Z",
+        RetryMax:      5,
+    },
+}
+batchResult, err := client.BatchCreateJobs(jobs)
 
 // Get a specific job
 job, err := client.GetJob("job-id")
@@ -300,6 +327,12 @@ fmt.Printf("Raft State: %s\n", health.Data.RaftStats.State)
 
 ### Webhook Methods
 - `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`
+
+### Job Creation Behavior
+- **Single Job Creation**: `CreateJob()` internally uses batch creation with a single job
+- **Batch Job Creation**: `BatchCreateJobs()` allows creating multiple jobs in one API call
+- **Backend API**: The `/api/v1/jobs` POST endpoint expects an array of jobs for batch processing
+- **Response Format**: Batch creation returns `BatchJobResponse` with `Data []Job` array
 
 ## Error Handling
 

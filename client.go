@@ -252,10 +252,31 @@ type CredentialResponse struct {
 	Data    Credential `json:"data"`
 }
 
+// CredentialCreateRequestBody represents the request body for creating a credential
+type CredentialCreateRequestBody struct {
+	Archived  bool   `json:"archived,omitempty"`
+	CreatedBy string `json:"createdBy"`
+}
+
+// CredentialUpdateRequestBody represents the request body for updating a credential
+type CredentialUpdateRequestBody struct {
+	Archived   bool   `json:"archived,omitempty"`
+	ModifiedBy string `json:"modifiedBy"`
+}
+
+// CredentialDeleteRequestBody represents the request body for deleting a credential
+type CredentialDeleteRequestBody struct {
+	DeletedBy string `json:"deletedBy"`
+}
+
+// CredentialArchiveRequestBody represents the request body for archiving a credential
+type CredentialArchiveRequestBody struct {
+	ArchivedBy string `json:"archivedBy"`
+}
+
 // CreateCredential creates a new credential
-func (c *Client) CreateCredential() (*CredentialResponse, error) {
-	// Send an empty object as the request body since the API requires a body
-	req, err := c.newRequest("POST", "/credentials", map[string]interface{}{})
+func (c *Client) CreateCredential(body *CredentialCreateRequestBody) (*CredentialResponse, error) {
+	req, err := c.newRequest("POST", "/credentials", body)
 	if err != nil {
 		return nil, err
 	}
@@ -284,8 +305,8 @@ func (c *Client) GetCredential(id string) (*CredentialResponse, error) {
 }
 
 // UpdateCredential updates an existing credential
-func (c *Client) UpdateCredential(id string) (*CredentialResponse, error) {
-	req, err := c.newRequest("PUT", fmt.Sprintf("/credentials/%s", id), nil)
+func (c *Client) UpdateCredential(id string, body *CredentialUpdateRequestBody) (*CredentialResponse, error) {
+	req, err := c.newRequest("PUT", fmt.Sprintf("/credentials/%s", id), body)
 	if err != nil {
 		return nil, err
 	}
@@ -299,8 +320,8 @@ func (c *Client) UpdateCredential(id string) (*CredentialResponse, error) {
 }
 
 // DeleteCredential deletes a credential by ID
-func (c *Client) DeleteCredential(id string) error {
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/credentials/%s", id), nil)
+func (c *Client) DeleteCredential(id string, body *CredentialDeleteRequestBody) error {
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/credentials/%s", id), body)
 	if err != nil {
 		return err
 	}
@@ -411,7 +432,7 @@ type ExecutorResponse struct {
 	Data    Executor `json:"data"`
 }
 
-// ExecutorRequestBody represents the request body for creating/updating an executor
+// ExecutorRequestBody represents the request body for creating an executor
 type ExecutorRequestBody struct {
 	Name             string `json:"name"`
 	Type             string `json:"type"`
@@ -423,6 +444,27 @@ type ExecutorRequestBody struct {
 	WebhookURL       string `json:"webhookUrl,omitempty"`
 	WebhookSecret    string `json:"webhookSecret,omitempty"`
 	WebhookMethod    string `json:"webhookMethod,omitempty"`
+	CreatedBy        string `json:"createdBy"`
+}
+
+// ExecutorUpdateRequestBody represents the request body for updating an executor
+type ExecutorUpdateRequestBody struct {
+	Name             string `json:"name"`
+	Type             string `json:"type"`
+	Region           string `json:"region"`
+	CloudProvider    string `json:"cloudProvider"`
+	CloudResourceURL string `json:"cloudResourceUrl"`
+	CloudAPIKey      string `json:"cloudApiKey,omitempty"`
+	CloudAPISecret   string `json:"cloudApiSecret,omitempty"`
+	WebhookURL       string `json:"webhookUrl,omitempty"`
+	WebhookSecret    string `json:"webhookSecret,omitempty"`
+	WebhookMethod    string `json:"webhookMethod,omitempty"`
+	ModifiedBy       string `json:"modifiedBy"`
+}
+
+// ExecutorDeleteRequestBody represents the request body for deleting an executor
+type ExecutorDeleteRequestBody struct {
+	DeletedBy string `json:"deletedBy"`
 }
 
 // PaginatedExecutorsResponse represents a paginated list of executors
@@ -494,7 +536,7 @@ func (c *Client) GetExecutor(id string) (*ExecutorResponse, error) {
 }
 
 // UpdateExecutor updates an existing executor
-func (c *Client) UpdateExecutor(id string, body *ExecutorRequestBody) (*ExecutorResponse, error) {
+func (c *Client) UpdateExecutor(id string, body *ExecutorUpdateRequestBody) (*ExecutorResponse, error) {
 	req, err := c.newRequest("PUT", fmt.Sprintf("/executors/%s", id), body)
 	if err != nil {
 		return nil, err
@@ -509,8 +551,8 @@ func (c *Client) UpdateExecutor(id string, body *ExecutorRequestBody) (*Executor
 }
 
 // DeleteExecutor deletes an executor by ID
-func (c *Client) DeleteExecutor(id string) error {
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/executors/%s", id), nil)
+func (c *Client) DeleteExecutor(id string, body *ExecutorDeleteRequestBody) error {
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/executors/%s", id), body)
 	if err != nil {
 		return err
 	}
@@ -606,11 +648,18 @@ type ProjectResponse struct {
 type ProjectRequestBody struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	CreatedBy   string `json:"createdBy"`
 }
 
 // ProjectUpdateRequestBody represents the request body for updating a project
 type ProjectUpdateRequestBody struct {
 	Description string `json:"description"`
+	ModifiedBy  string `json:"modifiedBy"`
+}
+
+// ProjectDeleteRequestBody represents the request body for deleting a project
+type ProjectDeleteRequestBody struct {
+	DeletedBy string `json:"deletedBy"`
 }
 
 // PaginatedProjectsResponse represents a paginated list of projects
@@ -690,12 +739,8 @@ func (c *Client) UpdateProject(id int64, body *ProjectUpdateRequestBody) (*Proje
 }
 
 // DeleteProject deletes a project by ID
-func (c *Client) DeleteProject(id int64, deletedBy string) error {
-	requestBody := map[string]string{
-		"deletedBy": deletedBy,
-	}
-
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/projects/%d", id), requestBody)
+func (c *Client) DeleteProject(id int64, body *ProjectDeleteRequestBody) error {
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/projects/%d", id), body)
 	if err != nil {
 		return err
 	}
@@ -732,6 +777,12 @@ type JobResponse struct {
 	Data    Job  `json:"data"`
 }
 
+// BatchJobResponse represents the response for batch job creation
+type BatchJobResponse struct {
+	Success bool   `json:"success"`
+	Data    string `json:"data"`
+}
+
 // JobRequestBody represents the request body for creating a job
 type JobRequestBody struct {
 	ProjectID      int64  `json:"projectId"`
@@ -744,6 +795,7 @@ type JobRequestBody struct {
 	TimezoneOffset int64  `json:"timezoneOffset,omitempty"`
 	RetryMax       int    `json:"retryMax,omitempty"`
 	Status         string `json:"status,omitempty"`
+	CreatedBy      string `json:"createdBy"`
 }
 
 // JobUpdateRequestBody represents the request body for updating a job
@@ -758,6 +810,12 @@ type JobUpdateRequestBody struct {
 	TimezoneOffset int64  `json:"timezoneOffset,omitempty"`
 	RetryMax       int    `json:"retryMax,omitempty"`
 	Status         string `json:"status,omitempty"`
+	ModifiedBy     string `json:"modifiedBy"`
+}
+
+// JobDeleteRequestBody represents the request body for deleting a job
+type JobDeleteRequestBody struct {
+	DeletedBy string `json:"deletedBy"`
 }
 
 // PaginatedJobsResponse represents a paginated list of jobs
@@ -814,6 +872,21 @@ func (c *Client) CreateJob(body *JobRequestBody) (*JobResponse, error) {
 	return &result, nil
 }
 
+// BatchCreateJobs creates multiple jobs in a single request
+func (c *Client) BatchCreateJobs(jobs []JobRequestBody) (*BatchJobResponse, error) {
+	req, err := c.newRequest("POST", "/jobs", jobs)
+	if err != nil {
+		return nil, err
+	}
+
+	var result BatchJobResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // GetJob retrieves a single job by ID
 func (c *Client) GetJob(id string) (*JobResponse, error) {
 	req, err := c.newRequest("GET", fmt.Sprintf("/jobs/%s", id), nil)
@@ -845,8 +918,8 @@ func (c *Client) UpdateJob(id string, body *JobUpdateRequestBody) (*JobResponse,
 }
 
 // DeleteJob deletes a job by ID
-func (c *Client) DeleteJob(id string) error {
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/jobs/%s", id), nil)
+func (c *Client) DeleteJob(id string, body *JobDeleteRequestBody) error {
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/jobs/%s", id), body)
 	if err != nil {
 		return err
 	}
