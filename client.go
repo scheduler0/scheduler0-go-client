@@ -347,15 +347,14 @@ func (c *Client) ArchiveCredential(id string, archivedBy string) error {
 type Execution struct {
 	ID                int    `json:"id"`
 	UniqueID          string `json:"uniqueId"`
-	State             string `json:"state"`
-	NodeID            string `json:"nodeId"`
-	JobID             string `json:"jobId"`
+    State             int    `json:"state"`
+    NodeID            int64  `json:"nodeId"`
+    JobID             int64  `json:"jobId"`
 	LastExecutionTime string `json:"lastExecutionDatetime"`
 	NextExecutionTime string `json:"nextExecutionDatetime"`
 	JobQueueVersion   int    `json:"jobQueueVersion"`
 	ExecutionVersion  int    `json:"executionVersion"`
-	Logs              string `json:"logs"`
-	CreatedAt         string `json:"date_created"`
+	CreatedAt         string `json:"dateCreated"`
 }
 
 // ExecutionResponse represents the response for a single execution
@@ -830,11 +829,16 @@ type PaginatedJobsResponse struct {
 }
 
 // ListJobs retrieves all jobs with optional query parameters
+// projectID can be empty string to list all jobs for the account
 func (c *Client) ListJobs(projectID string, limit, offset int, orderBy, orderByDirection string) (*PaginatedJobsResponse, error) {
 	queryParams := map[string]string{
-		"projectId": projectID,
-		"limit":     fmt.Sprintf("%d", limit),
-		"offset":    fmt.Sprintf("%d", offset),
+		"limit":  fmt.Sprintf("%d", limit),
+		"offset": fmt.Sprintf("%d", offset),
+	}
+
+	// Only add projectId if it's not empty
+	if projectID != "" {
+		queryParams["projectId"] = projectID
 	}
 
 	if orderBy != "" {
