@@ -62,8 +62,7 @@ go get github.com/scheduler0/scheduler0-go-client
 
 ## API Documentation
 
-- **OpenAPI Specification**: [openapi.json](openapi.json) - Complete API specification
-- **Interactive Documentation**: Use tools like [Swagger UI](https://swagger.io/tools/swagger-ui/) to view the API documentation
+- **OpenAPI Specification**: [openapi.json](https://scheduler0.com/api-reference) - Complete API specification
 
 ## Authentication
 
