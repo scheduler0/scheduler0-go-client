@@ -345,16 +345,18 @@ func (c *Client) ArchiveCredential(id string, archivedBy string) error {
 
 // Execution represents a job execution log
 type Execution struct {
-	ID                int    `json:"id"`
-	UniqueID          string `json:"uniqueId"`
-    State             int    `json:"state"`
-    NodeID            int64  `json:"nodeId"`
-    JobID             int64  `json:"jobId"`
-	LastExecutionTime string `json:"lastExecutionDatetime"`
-	NextExecutionTime string `json:"nextExecutionDatetime"`
-	JobQueueVersion   int    `json:"jobQueueVersion"`
-	ExecutionVersion  int    `json:"executionVersion"`
-	CreatedAt         string `json:"dateCreated"`
+	ID                    int64   `json:"id"`
+	AccountID             int64   `json:"accountId"`
+	UniqueID              string  `json:"uniqueId"`
+	State                 int64   `json:"state"`
+	NodeID                int64   `json:"nodeId"`
+	JobID                 int64   `json:"jobId"`
+	LastExecutionDatetime string  `json:"lastExecutionDatetime"`
+	NextExecutionDatetime string  `json:"nextExecutionDatetime"`
+	JobQueueVersion       int64   `json:"jobQueueVersion"`
+	ExecutionVersion      int64   `json:"executionVersion"`
+	DateCreated           string  `json:"dateCreated"`
+	DateModified          *string `json:"dateModified"`
 }
 
 // ExecutionResponse represents the response for a single execution
@@ -630,11 +632,15 @@ type AsyncTaskResponse struct {
 
 // Project represents a project
 type Project struct {
-	ID          int64  `json:"id"`
-	AccountID   int64  `json:"accountId"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	DateCreated string `json:"dateCreated"`
+	ID           int64   `json:"id"`
+	AccountID    int64   `json:"accountId"`
+	Name         string  `json:"name"`
+	Description  string  `json:"description"`
+	DateCreated  string  `json:"dateCreated"`
+	DateModified *string `json:"dateModified"`
+	CreatedBy    string  `json:"createdBy"`
+	ModifiedBy   *string `json:"modifiedBy"`
+	DeletedBy    *string `json:"deletedBy"`
 }
 
 // ProjectResponse represents the response for a single project
@@ -673,10 +679,17 @@ type PaginatedProjectsResponse struct {
 }
 
 // ListProjects retrieves all projects with optional query parameters
-func (c *Client) ListProjects(limit, offset int) (*PaginatedProjectsResponse, error) {
+func (c *Client) ListProjects(limit, offset int, orderBy, orderByDirection string) (*PaginatedProjectsResponse, error) {
 	queryParams := map[string]string{
 		"limit":  fmt.Sprintf("%d", limit),
 		"offset": fmt.Sprintf("%d", offset),
+	}
+
+	if orderBy != "" {
+		queryParams["orderBy"] = orderBy
+	}
+	if orderByDirection != "" {
+		queryParams["orderByDirection"] = orderByDirection
 	}
 
 	req, err := c.newRequestWithQuery("GET", "/projects", nil, queryParams)
@@ -862,18 +875,11 @@ func (c *Client) ListJobs(projectID string, limit, offset int, orderBy, orderByD
 }
 
 // CreateJob creates a new job
-func (c *Client) CreateJob(body *JobRequestBody) (*JobResponse, error) {
-	req, err := c.newRequest("POST", "/jobs", body)
-	if err != nil {
-		return nil, err
-	}
-
-	var result JobResponse
-	err = c.do(req, &result)
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
+// Note: This is a convenience method that wraps a single job in an array.
+// The API always expects an array and returns 202 Accepted with a request ID for async tracking.
+// For better control, use BatchCreateJobs directly.
+func (c *Client) CreateJob(body *JobRequestBody) (*BatchJobResponse, error) {
+	return c.BatchCreateJobs([]JobRequestBody{*body})
 }
 
 // BatchCreateJobs creates multiple jobs in a single request
@@ -988,6 +994,26 @@ func (c *Client) RemoveFeatureFromAccount(accountID string, body *FeatureRequest
 	return c.do(req, nil)
 }
 
+// AddAllFeaturesToAccount adds all features to an account
+func (c *Client) AddAllFeaturesToAccount(accountID string) error {
+	req, err := c.newRequest("PUT", fmt.Sprintf("/accounts/%s/features/all", accountID), nil)
+	if err != nil {
+		return err
+	}
+
+	return c.do(req, nil)
+}
+
+// RemoveAllFeaturesFromAccount removes all features from an account
+func (c *Client) RemoveAllFeaturesFromAccount(accountID string) error {
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/accounts/%s/features/all", accountID), nil)
+	if err != nil {
+		return err
+	}
+
+	return c.do(req, nil)
+}
+
 // Feature Management Methods
 
 // ListFeatures retrieves all available features
@@ -1077,4 +1103,48 @@ func (c *Client) Healthcheck() (*HealthcheckResponse, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// PromptJobRequest represents the request body for creating jobs from AI prompt
+type PromptJobRequest struct {
+	Prompt     string   `json:"prompt"`
+	Purposes   []string `json:"purposes,omitempty"`
+	Events     []string `json:"events,omitempty"`
+	Recipients []string `json:"recipients,omitempty"`
+	Channels   []string `json:"channels,omitempty"`
+	Timezone   string   `json:"timezone,omitempty"`
+}
+
+// PromptJobResponse represents a job configuration generated from AI prompt
+type PromptJobResponse struct {
+	Kind           string                 `json:"kind,omitempty"`
+	Purpose        string                 `json:"purpose,omitempty"`
+	Subject        string                 `json:"subject,omitempty"`
+	NextRunAt      *string                `json:"nextRunAt,omitempty"`
+	Recurrence     string                 `json:"recurrence,omitempty"`
+	Event          string                 `json:"event,omitempty"`
+	Delivery       string                 `json:"delivery,omitempty"`
+	CronExpression string                 `json:"cronExpression,omitempty"`
+	Channel        string                 `json:"channel,omitempty"`
+	Recipients     []string               `json:"recipients,omitempty"`
+	StartDate      *string                `json:"startDate,omitempty"`
+	EndDate        *string                `json:"endDate,omitempty"`
+	Timezone       string                 `json:"timezone,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// CreateJobFromPrompt creates job configurations from an AI prompt
+// This endpoint requires credits and uses AI to generate job configurations
+func (c *Client) CreateJobFromPrompt(body *PromptJobRequest) ([]PromptJobResponse, error) {
+	req, err := c.newRequest("POST", "/prompt", body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []PromptJobResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
