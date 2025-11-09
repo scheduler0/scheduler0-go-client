@@ -1,6 +1,6 @@
 # Scheduler0 Go Client
 
-A Go client library for interacting with the [Scheduler0 API](https://scheduler0.com/api). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, and monitor the health of your Scheduler0 cluster.
+A Go client library for interacting with the [Scheduler0 API](https://scheduler0.com/api). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
 
 ## Features
 
@@ -45,6 +45,11 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
   - Get job details
   - Update jobs
   - Delete jobs
+
+- **AI-Powered Job Creation**
+  - Create job configurations from natural language prompts
+  - AI generates cron expressions, scheduling, and job metadata
+  - Supports purposes, events, recipients, and channels
 
 - **Async Tasks Management**
   - Get async task status by request ID
@@ -294,6 +299,71 @@ result, err := client.UpdateJob("job-id", update)
 err := client.DeleteJob("job-id")
 ```
 
+### AI-Powered Job Creation
+
+Create job configurations from natural language prompts using AI:
+
+```go
+// Create job configurations from a natural language prompt
+promptRequest := &scheduler0_go_client.PromptJobRequest{
+    Prompt:     "Send weekly reports every Monday at 9 AM",
+    Purposes:   []string{"reporting", "communication"},
+    Events:     []string{"weekly_cycle"},
+    Recipients: []string{"team@example.com", "manager@example.com"},
+    Channels:   []string{"email"},
+    Timezone:   "America/New_York",
+}
+
+// Generate job configurations from the prompt
+// Note: This endpoint requires credits and validates credentials
+jobConfigs, err := client.CreateJobFromPrompt(promptRequest)
+if err != nil {
+    log.Fatal(err)
+}
+
+// jobConfigs is an array of PromptJobResponse with generated configurations
+for _, config := range jobConfigs {
+    fmt.Printf("Kind: %s\n", config.Kind)
+    fmt.Printf("Cron Expression: %s\n", config.CronExpression)
+    if config.NextRunAt != nil {
+        fmt.Printf("Next Run At: %s\n", *config.NextRunAt)
+    }
+    fmt.Printf("Recipients: %v\n", config.Recipients)
+    
+    // Use the generated configuration to create actual jobs
+    job := &scheduler0_go_client.JobRequestBody{
+        ProjectID:  123,
+        Timezone:   config.Timezone,
+        Spec:       config.CronExpression,
+        CreatedBy:  "ai-prompt",
+    }
+    
+    // Set optional fields if available
+    if config.StartDate != nil {
+        job.StartDate = *config.StartDate
+    }
+    if config.EndDate != nil {
+        job.EndDate = *config.EndDate
+    }
+    if config.Subject != "" {
+        job.Data = fmt.Sprintf(`{"subject": "%s", "recipients": %v}`, config.Subject, config.Recipients)
+    }
+    
+    result, err := client.CreateJob(job)
+    if err != nil {
+        log.Printf("Failed to create job: %v", err)
+        continue
+    }
+    
+    fmt.Printf("Job created with request ID: %s\n", result.Data)
+}
+```
+
+**Note**: The AI prompt endpoint requires:
+- Valid API credentials (API Key + Secret)
+- Account ID header
+- Sufficient credits (1 credit per prompt execution)
+
 ### Managing Async Tasks
 
 ```go
@@ -331,7 +401,8 @@ fmt.Printf("Raft State: %s\n", health.Data.RaftStats.State)
 - **Single Job Creation**: `CreateJob()` internally uses batch creation with a single job
 - **Batch Job Creation**: `BatchCreateJobs()` allows creating multiple jobs in one API call
 - **Backend API**: The `/api/v1/jobs` POST endpoint expects an array of jobs for batch processing
-- **Response Format**: Batch creation returns `BatchJobResponse` with `Data []Job` array
+- **Response Format**: Job creation returns `BatchJobResponse` with HTTP 202 Accepted status and a `Data` field containing the request ID (string) for async task tracking
+- **Async Tracking**: Use the request ID with `GetAsyncTask()` to track job creation status
 
 ## Error Handling
 
@@ -362,8 +433,18 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
+- `/api/v1/prompt` (AI prompt endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
+
+## Credits and AI Features
+
+The AI prompt endpoint (`/api/v1/prompt`) requires:
+- **Credits**: 1 credit per prompt execution
+- **Authentication**: Valid API Key + Secret credentials
+- **Account ID**: Required header for credit deduction
+
+Credits are automatically deducted when the prompt is successfully processed. If the prompt processing fails after credit deduction, credits are not refunded.
 
 ## License
 
