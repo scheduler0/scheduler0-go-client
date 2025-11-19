@@ -272,7 +272,7 @@ func TestListExecutions(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListExecutions("2025-01-01T00:00:00Z", "2025-01-01T23:59:59Z", 0, 0, 10, 0)
+	result, err := client.ListExecutions("2025-01-01T00:00:00Z", "2025-01-01T23:59:59Z", 0, 0, 0, 10, 0)
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -321,7 +321,7 @@ func TestListExecutors(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListExecutors(10, 0, "date_created", "desc")
+	result, err := client.ListExecutors(0, 10, 0, "date_created", "desc")
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -519,7 +519,7 @@ func TestListProjects(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListProjects(10, 0, "date_created", "desc")
+	result, err := client.ListProjects(0, 10, 0, "date_created", "desc")
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
