@@ -87,7 +87,7 @@ type PaginatedJobsResponse struct {
 // ListJobsParams represents parameters for listing jobs
 type ListJobsParams struct {
 	ProjectID        string // Project ID to filter by (empty string for all projects)
-	AccountID        string // Account ID override (empty string to use client default)
+	AccountID        int64  // Account ID override (0 to use client default)
 	Limit            int    // Maximum number of items to return
 	Offset           int    // Number of items to skip
 	OrderBy          string // Field to order by (e.g., "date_created", "date_modified")

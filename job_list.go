@@ -21,11 +21,11 @@ func (c *Client) ListJobs(params ListJobsParams) (*PaginatedJobsResponse, error)
 		queryParams["orderByDirection"] = params.OrderByDirection
 	}
 
-	var accountID string
-	if params.AccountID != "" {
-		accountID = params.AccountID
+	var accountIDOverride string
+	if params.AccountID > 0 {
+		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
 	}
-	req, err := c.newRequestWithQuery("GET", "/jobs", nil, queryParams, accountID)
+	req, err := c.newRequestWithQuery("GET", "/jobs", nil, queryParams, accountIDOverride)
 	if err != nil {
 		return nil, err
 	}
