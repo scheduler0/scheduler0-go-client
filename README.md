@@ -145,7 +145,12 @@ features, err := client.ListFeatures()
 
 ```go
 // List credentials with pagination and ordering
-credentials, err := client.ListCredentials(10, 0, "date_created", "desc")
+credentials, err := client.ListCredentials(scheduler0_go_client.ListCredentialsParams{
+    Limit:            10,
+    Offset:           0,
+    OrderBy:          "date_created",
+    OrderByDirection: "desc",
+})
 
 // Create a new credential
 credential, err := client.CreateCredential()
@@ -164,21 +169,28 @@ err := client.DeleteCredential("credential-id")
 
 ```go
 // List executions with date filtering
-executions, err := client.ListExecutions(
-    "2024-01-01T00:00:00Z",  // Start date
-    "2024-12-31T23:59:59Z",  // End date
-    0,                       // Project ID (0 for all)
-    0,                       // Job ID (0 for all)
-    10,                      // Limit
-    0,                       // Offset
-)
+executions, err := client.ListExecutions(scheduler0_go_client.ListExecutionsParams{
+    StartDate: "2024-01-01T00:00:00Z",  // Required: Start date (RFC3339 format)
+    EndDate:   "2024-12-31T23:59:59Z",  // Required: End date (RFC3339 format)
+    ProjectID: 0,                       // Optional: Project ID (0 for all)
+    JobID:     0,                       // Optional: Job ID (0 for all)
+    AccountID: 0,                       // Optional: Account ID override (0 uses client default)
+    Limit:     10,                      // Required: Maximum number of items
+    Offset:    0,                       // Required: Number of items to skip
+})
 ```
 
 ### Managing Executors
 
 ```go
 // List executors with pagination and ordering
-executors, err := client.ListExecutors(10, 0, "date_created", "desc")
+executors, err := client.ListExecutors(scheduler0_go_client.ListExecutorsParams{
+    AccountID:        0,                // Optional: Account ID override (0 uses client default)
+    Limit:            10,
+    Offset:           0,
+    OrderBy:          "date_created",
+    OrderByDirection: "desc",
+})
 
 // Create a webhook executor
 executor := &scheduler0_go_client.ExecutorRequestBody{
@@ -219,8 +231,14 @@ err := client.DeleteExecutor("executor-id")
 ### Managing Projects
 
 ```go
-// List projects with pagination
-projects, err := client.ListProjects(10, 0)
+// List projects with pagination and ordering
+projects, err := client.ListProjects(scheduler0_go_client.ListProjectsParams{
+    AccountID:        0,                // Optional: Account ID override (0 uses client default)
+    Limit:            10,
+    Offset:           0,
+    OrderBy:          "date_created",    // Optional: Field to order by
+    OrderByDirection: "desc",            // Optional: Order direction ("asc" or "desc")
+})
 
 // Create a new project
 project := &scheduler0_go_client.ProjectRequestBody{
@@ -246,7 +264,13 @@ err := client.DeleteProject("project-id")
 
 ```go
 // List jobs with pagination and ordering
-jobs, err := client.ListJobs("project-id", 10, 0, "date_created", "desc")
+jobs, err := client.ListJobs(scheduler0_go_client.ListJobsParams{
+    ProjectID:        "",               // Optional: Project ID to filter by (empty string for all)
+    Limit:            10,
+    Offset:           0,
+    OrderBy:          "date_created",
+    OrderByDirection: "desc",
+})
 
 // Create a single job
 job := &scheduler0_go_client.JobRequestBody{
@@ -437,6 +461,21 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
+### Per-Request Account ID Override
+
+You can override the Account ID set during client initialization on a per-request basis by including it in the params struct for list methods:
+
+```go
+// Override Account ID for a specific request
+projects, err := client.ListProjects(scheduler0_go_client.ListProjectsParams{
+    AccountID: 456,  // Overrides the client's default Account ID
+    Limit:     10,
+    Offset:    0,
+})
+```
+
+For other methods, the Account ID can be set in the request body's `AccountID` field (which is excluded from JSON serialization but used for the `X-Account-ID` header).
+
 ## Credits and AI Features
 
 The AI prompt endpoint (`/api/v1/prompt`) requires:
@@ -449,6 +488,30 @@ Credits are automatically deducted when the prompt is successfully processed. If
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+go test -v ./...
+
+# Run tests with race detection
+go test -v -race ./...
+
+# Run tests with coverage
+go test -v -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### CI/CD
+
+This project uses GitHub Actions for continuous integration. Tests are automatically run on:
+- Push to `main`, `master`, or `develop` branches
+- Pull requests to `main`, `master`, or `develop` branches
+
+The CI pipeline tests against Go 1.23 and 1.24.
 
 ## Contributing
 
