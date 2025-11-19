@@ -3,24 +3,24 @@ package scheduler0_go_client
 import "fmt"
 
 // ListExecutions retrieves job executions with query parameters
-func (c *Client) ListExecutions(startDate, endDate string, projectID, jobID, accountID int64, limit, offset int) (*PaginatedExecutionsResponse, error) {
+func (c *Client) ListExecutions(params ListExecutionsParams) (*PaginatedExecutionsResponse, error) {
 	queryParams := map[string]string{
-		"startDate": startDate,
-		"endDate":   endDate,
-		"limit":     fmt.Sprintf("%d", limit),
-		"offset":    fmt.Sprintf("%d", offset),
+		"startDate": params.StartDate,
+		"endDate":   params.EndDate,
+		"limit":     fmt.Sprintf("%d", params.Limit),
+		"offset":    fmt.Sprintf("%d", params.Offset),
 	}
 
-	if projectID > 0 {
-		queryParams["projectId"] = fmt.Sprintf("%d", projectID)
+	if params.ProjectID > 0 {
+		queryParams["projectId"] = fmt.Sprintf("%d", params.ProjectID)
 	}
-	if jobID > 0 {
-		queryParams["jobId"] = fmt.Sprintf("%d", jobID)
+	if params.JobID > 0 {
+		queryParams["jobId"] = fmt.Sprintf("%d", params.JobID)
 	}
 
 	var accountIDOverride string
-	if accountID > 0 {
-		accountIDOverride = fmt.Sprintf("%d", accountID)
+	if params.AccountID > 0 {
+		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
 	}
 
 	req, err := c.newRequestWithQuery("GET", "/executions", nil, queryParams, accountIDOverride)

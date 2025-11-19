@@ -50,3 +50,12 @@ type PaginatedProjectsResponse struct {
 		Projects []Project `json:"projects"`
 	} `json:"data"`
 }
+
+// ListProjectsParams represents parameters for listing projects
+type ListProjectsParams struct {
+	AccountID        int64  // Account ID override (0 to use client default)
+	Limit            int    // Maximum number of items to return
+	Offset           int    // Number of items to skip
+	OrderBy          string // Field to order by (e.g., "date_created", "date_modified")
+	OrderByDirection string // Direction to order ("asc" or "desc")
+}

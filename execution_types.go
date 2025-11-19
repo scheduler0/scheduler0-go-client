@@ -33,3 +33,14 @@ type PaginatedExecutionsResponse struct {
 	} `json:"data"`
 }
 
+// ListExecutionsParams represents parameters for listing executions
+type ListExecutionsParams struct {
+	StartDate string // Start date for filtering (RFC3339 format, required)
+	EndDate   string // End date for filtering (RFC3339 format, required)
+	ProjectID int64  // Project ID to filter by (0 for all)
+	JobID     int64  // Job ID to filter by (0 for all)
+	AccountID int64  // Account ID override (0 to use client default)
+	Limit     int    // Maximum number of items to return
+	Offset    int    // Number of items to skip
+}
+

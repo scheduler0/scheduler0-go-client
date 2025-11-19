@@ -33,6 +33,14 @@ type PaginatedCredentialsResponse struct {
 	} `json:"data"`
 }
 
+// ListCredentialsParams represents parameters for listing credentials
+type ListCredentialsParams struct {
+	Limit            int    // Maximum number of items to return
+	Offset           int    // Number of items to skip
+	OrderBy          string // Field to order by (e.g., "date_created", "date_modified")
+	OrderByDirection string // Direction to order ("asc" or "desc")
+}
+
 // CredentialCreateRequestBody represents the request body for creating a credential
 type CredentialCreateRequestBody struct {
 	AccountID int64  `json:"-"`

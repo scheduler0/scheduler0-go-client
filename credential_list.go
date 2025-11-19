@@ -3,17 +3,17 @@ package scheduler0_go_client
 import "fmt"
 
 // ListCredentials retrieves all credentials with optional query parameters
-func (c *Client) ListCredentials(limit, offset int, orderBy, orderByDirection string) (*PaginatedCredentialsResponse, error) {
+func (c *Client) ListCredentials(params ListCredentialsParams) (*PaginatedCredentialsResponse, error) {
 	queryParams := map[string]string{
-		"limit":  fmt.Sprintf("%d", limit),
-		"offset": fmt.Sprintf("%d", offset),
+		"limit":  fmt.Sprintf("%d", params.Limit),
+		"offset": fmt.Sprintf("%d", params.Offset),
 	}
 
-	if orderBy != "" {
-		queryParams["orderBy"] = orderBy
+	if params.OrderBy != "" {
+		queryParams["orderBy"] = params.OrderBy
 	}
-	if orderByDirection != "" {
-		queryParams["orderByDirection"] = orderByDirection
+	if params.OrderByDirection != "" {
+		queryParams["orderByDirection"] = params.OrderByDirection
 	}
 
 	req, err := c.newRequestWithQuery("GET", "/credentials", nil, queryParams)

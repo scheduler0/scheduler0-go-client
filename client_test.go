@@ -85,7 +85,12 @@ func TestListCredentials(t *testing.T) {
 	client := createTestAPIClient(server)
 
 	// Make call with parameters
-	result, err := client.ListCredentials(10, 0, "date_created", "desc")
+	result, err := client.ListCredentials(ListCredentialsParams{
+		Limit:            10,
+		Offset:           0,
+		OrderBy:          "date_created",
+		OrderByDirection: "desc",
+	})
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -272,7 +277,15 @@ func TestListExecutions(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListExecutions("2025-01-01T00:00:00Z", "2025-01-01T23:59:59Z", 0, 0, 0, 10, 0)
+	result, err := client.ListExecutions(ListExecutionsParams{
+		StartDate: "2025-01-01T00:00:00Z",
+		EndDate:   "2025-01-01T23:59:59Z",
+		ProjectID: 0,
+		JobID:     0,
+		AccountID: 0,
+		Limit:     10,
+		Offset:    0,
+	})
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -321,7 +334,13 @@ func TestListExecutors(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListExecutors(0, 10, 0, "date_created", "desc")
+	result, err := client.ListExecutors(ListExecutorsParams{
+		AccountID:        0,
+		Limit:            10,
+		Offset:           0,
+		OrderBy:          "date_created",
+		OrderByDirection: "desc",
+	})
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -519,7 +538,13 @@ func TestListProjects(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListProjects(0, 10, 0, "date_created", "desc")
+	result, err := client.ListProjects(ListProjectsParams{
+		AccountID:        0,
+		Limit:            10,
+		Offset:           0,
+		OrderBy:          "date_created",
+		OrderByDirection: "desc",
+	})
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)
@@ -714,7 +739,13 @@ func TestListJobs(t *testing.T) {
 		Version:    "v1",
 	}
 
-	result, err := client.ListJobs("proj-1", 10, 0, "date_created", "desc")
+	result, err := client.ListJobs(ListJobsParams{
+		ProjectID:        "proj-1",
+		Limit:            10,
+		Offset:           0,
+		OrderBy:          "date_created",
+		OrderByDirection: "desc",
+	})
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, 1, result.Data.Total)

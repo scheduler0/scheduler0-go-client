@@ -3,22 +3,22 @@ package scheduler0_go_client
 import "fmt"
 
 // ListProjects retrieves all projects with optional query parameters
-func (c *Client) ListProjects(accountID int64, limit, offset int, orderBy, orderByDirection string) (*PaginatedProjectsResponse, error) {
+func (c *Client) ListProjects(params ListProjectsParams) (*PaginatedProjectsResponse, error) {
 	queryParams := map[string]string{
-		"limit":  fmt.Sprintf("%d", limit),
-		"offset": fmt.Sprintf("%d", offset),
+		"limit":  fmt.Sprintf("%d", params.Limit),
+		"offset": fmt.Sprintf("%d", params.Offset),
 	}
 
-	if orderBy != "" {
-		queryParams["orderBy"] = orderBy
+	if params.OrderBy != "" {
+		queryParams["orderBy"] = params.OrderBy
 	}
-	if orderByDirection != "" {
-		queryParams["orderByDirection"] = orderByDirection
+	if params.OrderByDirection != "" {
+		queryParams["orderByDirection"] = params.OrderByDirection
 	}
 
 	var accountIDOverride string
-	if accountID > 0 {
-		accountIDOverride = fmt.Sprintf("%d", accountID)
+	if params.AccountID > 0 {
+		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
 	}
 
 	req, err := c.newRequestWithQuery("GET", "/projects", nil, queryParams, accountIDOverride)
