@@ -16,7 +16,12 @@ func (c *Client) ListCredentials(params ListCredentialsParams) (*PaginatedCreden
 		queryParams["orderByDirection"] = params.OrderByDirection
 	}
 
-	req, err := c.newRequestWithQuery("GET", "/credentials", nil, queryParams)
+	var accountIDOverride string
+	if params.AccountID > 0 {
+		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/credentials", nil, queryParams, accountIDOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -28,4 +33,3 @@ func (c *Client) ListCredentials(params ListCredentialsParams) (*PaginatedCreden
 	}
 	return &result, nil
 }
-

@@ -35,6 +35,7 @@ type PaginatedCredentialsResponse struct {
 
 // ListCredentialsParams represents parameters for listing credentials
 type ListCredentialsParams struct {
+	AccountID        int64  // Optional: Account ID override (0 uses client default)
 	Limit            int    // Maximum number of items to return
 	Offset           int    // Number of items to skip
 	OrderBy          string // Field to order by (e.g., "date_created", "date_modified")
