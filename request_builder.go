@@ -132,7 +132,7 @@ func extractAccountIDFromValue(val reflect.Value) string {
 		}
 		return extractAccountIDFromValue(val.Elem())
 	case reflect.Struct:
-		field := val.FieldByName("AccountID")
+		field := val.FieldByName("accountId")
 		if field.IsValid() && field.CanInterface() {
 			if accountID := accountIDValue(field); accountID != "" {
 				return accountID
