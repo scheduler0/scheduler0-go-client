@@ -67,7 +67,7 @@ go get github.com/scheduler0/scheduler0-go-client
 
 ## API Documentation
 
-- **OpenAPI Specification**: [openapi.json](https://scheduler0.com/api-reference) - Complete API specification
+- **OpenAPI Specification**: [openapi.json](https://api-reference.scheduler0.com) - Complete API specification
 
 ## Authentication
 
