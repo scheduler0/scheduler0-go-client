@@ -94,6 +94,7 @@ func (c *Client) newRequestWithQuery(method, endpoint string, body interface{}, 
 
 	// Add account ID based on override/body/client default preferences
 	accountID := c.resolveAccountID(body, accountIDOverride)
+
 	if accountID != "" {
 		req.Header.Set("X-Account-ID", accountID)
 	}
@@ -132,7 +133,7 @@ func extractAccountIDFromValue(val reflect.Value) string {
 		}
 		return extractAccountIDFromValue(val.Elem())
 	case reflect.Struct:
-		field := val.FieldByName("accountId")
+		field := val.FieldByName("AccountID")
 		if field.IsValid() && field.CanInterface() {
 			if accountID := accountIDValue(field); accountID != "" {
 				return accountID

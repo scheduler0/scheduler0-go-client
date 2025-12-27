@@ -35,12 +35,38 @@ type PaginatedExecutionsResponse struct {
 
 // ListExecutionsParams represents parameters for listing executions
 type ListExecutionsParams struct {
+	StartDate      string // Start date for filtering (RFC3339 format, required)
+	EndDate        string // End date for filtering (RFC3339 format, required)
+	ProjectID      int64  // Project ID to filter by (0 for all)
+	JobID          int64  // Job ID to filter by (0 for all)
+	AccountID      int64  // Account ID override (0 to use client default)
+	Limit          int    // Maximum number of items to return
+	Offset         int    // Number of items to skip
+	State          string // State filter: "scheduled", "completed", "failed", or "" for all
+	OrderBy        string // Sort field: "dateCreated", "lastExecutionDateTime", "nextExecutionDateTime"
+	OrderDirection string // Sort direction: "ASC" or "DESC"
+}
+
+// ExecutionMinuteBucket represents execution counts grouped by minute
+type ExecutionMinuteBucket struct {
+	Minute    string `json:"minute"`    // RFC3339 formatted time
+	Total     uint64 `json:"total"`     // Total executions in this minute
+	Scheduled uint64 `json:"scheduled"` // Scheduled executions in this minute
+	Success   uint64 `json:"success"`   // Successful executions in this minute
+	Failed    uint64 `json:"failed"`   // Failed executions in this minute
+}
+
+// ExecutionMinuteBucketsResponse represents the response for minute buckets
+type ExecutionMinuteBucketsResponse struct {
+	Success bool                  `json:"success"`
+	Data    []ExecutionMinuteBucket `json:"data"`
+}
+
+// GetExecutionMinuteBucketsParams represents parameters for getting execution minute buckets
+type GetExecutionMinuteBucketsParams struct {
 	StartDate string // Start date for filtering (RFC3339 format, required)
 	EndDate   string // End date for filtering (RFC3339 format, required)
-	ProjectID int64  // Project ID to filter by (0 for all)
-	JobID     int64  // Job ID to filter by (0 for all)
+	JobID     int64  // Job ID to filter by (0 for all jobs in account)
 	AccountID int64  // Account ID override (0 to use client default)
-	Limit     int    // Maximum number of items to return
-	Offset    int    // Number of items to skip
 }
 

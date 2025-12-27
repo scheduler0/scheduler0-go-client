@@ -133,6 +133,55 @@ func TestCreateCredential(t *testing.T) {
 	assert.Equal(t, "new-key", result.Data.APIKey)
 }
 
+// TestCreateCredential_AccountIDFromBody tests that AccountID is extracted from the request body
+// when the client doesn't have AccountID set. This reproduces the bug where reflection
+// looks for "accountId" (camelCase) but the field is "AccountID" (PascalCase).
+func TestCreateCredential_AccountIDFromBody(t *testing.T) {
+	mockResponse := CredentialResponse{
+		Success: true,
+		Data: Credential{
+			ID:          1,
+			AccountID:   456,
+			Archived:    false,
+			APIKey:      "new-key",
+			APISecret:   "new-secret",
+			DateCreated: "2025-01-01T00:00:00Z",
+			CreatedBy:   "user-1",
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/credentials", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		// Verify basic auth headers are present
+		username, password, ok := r.BasicAuth()
+		assert.True(t, ok, "Basic auth should be present")
+		assert.Equal(t, "testuser", username)
+		assert.Equal(t, "testpass", password)
+		assert.Equal(t, "cmd", r.Header.Get("X-Peer"))
+		// This assertion should fail initially, demonstrating the bug
+		// AccountID should be extracted from the request body
+		accountIDHeader := r.Header.Get("X-Account-ID")
+		assert.Equal(t, "456", accountIDHeader, "X-Account-ID header should be extracted from request body")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	// Create client WITHOUT AccountID set (like in auth.go)
+	client := createTestBasicAuthClient(server)
+
+	// Create credential with AccountID in the body
+	body := &CredentialCreateRequestBody{
+		AccountID: 456,
+		CreatedBy: "user-1",
+	}
+	result, err := client.CreateCredential(body)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "new-key", result.Data.APIKey)
+}
+
 func TestGetCredential(t *testing.T) {
 	mockResponse := CredentialResponse{
 		Success: true,

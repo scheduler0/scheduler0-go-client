@@ -1,6 +1,10 @@
 # Scheduler0 Go Client
 
-A Go client library for interacting with the [Scheduler0 API](https://scheduler0.com/api). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
+<div align="center">
+  <img src="logo.png" alt="Scheduler0 Logo" width="200">
+</div>
+
+A Go client library for interacting with the [Scheduler0 API](https://scheduler0.com). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
 
 ## Features
 
@@ -58,6 +62,8 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
   - Check cluster health
   - View raft statistics
   - Monitor leader status
+
+> **Note**: Account Management, Feature Management, and Async Tasks Management APIs are designed for users who run Scheduler0 in their own infrastructure and want granular control over team access and resource usage.
 
 ## Installation
 

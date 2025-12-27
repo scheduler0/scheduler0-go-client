@@ -27,3 +27,19 @@ type AccountResponse struct {
 	Data    Account `json:"data"`
 }
 
+// AccountJobExecutionsCount represents the execution count for an account
+type AccountJobExecutionsCount struct {
+	ID             int64  `json:"id"`
+	AccountID      int64  `json:"accountId"`
+	ExecutionCount int64  `json:"executionCount"`
+	DateCreated    string `json:"dateCreated"`
+	DateModified   string `json:"dateModified"`
+	NextResetDate  string `json:"nextResetDate"`
+}
+
+// AccountExecutionCountResponse represents the response for account execution count
+type AccountExecutionCountResponse struct {
+	Success bool                      `json:"success"`
+	Data    AccountJobExecutionsCount `json:"data"`
+}
+
