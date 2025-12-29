@@ -51,15 +51,12 @@ func (c *Client) ListExecutions(params ListExecutionsParams) (*PaginatedExecutio
 	return &result, nil
 }
 
-// GetExecutionMinuteBuckets retrieves execution counts grouped by minute
-func (c *Client) GetExecutionMinuteBuckets(params GetExecutionMinuteBucketsParams) ([]ExecutionMinuteBucket, error) {
+// GetDateRangeAnalytics retrieves execution counts grouped by minute buckets for a date range
+// All dates and times should be in UTC (timezone conversion should be done on frontend)
+func (c *Client) GetDateRangeAnalytics(params GetDateRangeAnalyticsParams) (*DateRangeAnalyticsAPIResponse, error) {
 	queryParams := map[string]string{
 		"startDate": params.StartDate,
-		"endDate":   params.EndDate,
-	}
-
-	if params.JobID > 0 {
-		queryParams["jobId"] = fmt.Sprintf("%d", params.JobID)
+		"startTime": params.StartTime,
 	}
 
 	var accountIDOverride string
@@ -67,15 +64,37 @@ func (c *Client) GetExecutionMinuteBuckets(params GetExecutionMinuteBucketsParam
 		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
 	}
 
-	req, err := c.newRequestWithQuery("GET", "/executions/minute-buckets", nil, queryParams, accountIDOverride)
+	req, err := c.newRequestWithQuery("GET", "/executions-summary", nil, queryParams, accountIDOverride)
 	if err != nil {
 		return nil, err
 	}
 
-	var result ExecutionMinuteBucketsResponse
+	var result DateRangeAnalyticsAPIResponse
 	err = c.do(req, &result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Data, nil
+
+	return &result, nil
+}
+
+// GetExecutionTotals retrieves total counts of scheduled, success, and failed executions for an account
+func (c *Client) GetExecutionTotals(accountID int64) (*ExecutionTotalsAPIResponse, error) {
+	var accountIDOverride string
+	if accountID > 0 {
+		accountIDOverride = fmt.Sprintf("%d", accountID)
+	}
+
+	req, err := c.newRequestWithQuery("GET", "/executions-totals", nil, nil, accountIDOverride)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ExecutionTotalsAPIResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
