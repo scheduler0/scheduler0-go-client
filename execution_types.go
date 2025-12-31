@@ -80,6 +80,18 @@ type ExecutionTotalsResponse struct {
 }
 
 type ExecutionTotalsAPIResponse struct {
-	Success bool                   `json:"success"`
+	Success bool                    `json:"success"`
 	Data    ExecutionTotalsResponse `json:"data"`
+}
+
+type CleanupOldLogsRequestBody struct {
+	AccountID       string `json:"accountId"`
+	RetentionMonths int    `json:"retentionMonths"`
+}
+
+type CleanupOldLogsResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Message string `json:"message"`
+	} `json:"data"`
 }

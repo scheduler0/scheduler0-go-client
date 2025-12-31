@@ -1393,3 +1393,136 @@ func TestGetAsyncTask(t *testing.T) {
 	assert.Equal(t, "request-123", result.Data.RequestID)
 	assert.Equal(t, 2, result.Data.State)
 }
+
+func TestGetDateRangeAnalytics(t *testing.T) {
+	mockResponse := DateRangeAnalyticsAPIResponse{
+		Success: true,
+		Data: DateRangeAnalyticsResponse{
+			AccountID: uint64(123),
+			Timezone:  "UTC",
+			StartDate: "2025-01-01",
+			StartTime: "00:00:00",
+			EndDate:   "2025-01-01",
+			EndTime:   "23:59:59",
+			Points: []DateRangeAnalyticsPoint{
+				{
+					Date:      "2025-01-01",
+					Time:      "00:00:00",
+					Scheduled: uint64(10),
+					Success:   uint64(8),
+					Failed:    uint64(2),
+				},
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/executions/analytics", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "2025-01-01", r.URL.Query().Get("startDate"))
+		assert.Equal(t, "00:00:00", r.URL.Query().Get("startTime"))
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	client := &Client{
+		BaseURL:    u,
+		HTTPClient: server.Client(),
+		APIKey:     "mock-api-key",
+		APISecret:  "mock-api-secret",
+		Version:    "v1",
+	}
+
+	result, err := client.GetDateRangeAnalytics(GetDateRangeAnalyticsParams{
+		StartDate: "2025-01-01",
+		StartTime: "00:00:00",
+		AccountID: 123,
+	})
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, uint64(123), result.Data.AccountID)
+	assert.Equal(t, 1, len(result.Data.Points))
+	assert.Equal(t, uint64(10), result.Data.Points[0].Scheduled)
+}
+
+func TestGetExecutionTotals(t *testing.T) {
+	mockResponse := ExecutionTotalsAPIResponse{
+		Success: true,
+		Data: ExecutionTotalsResponse{
+			AccountID: 123,
+			Scheduled: 100,
+			Success:   80,
+			Failed:    20,
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/executions/totals", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	client := &Client{
+		BaseURL:    u,
+		HTTPClient: server.Client(),
+		APIKey:     "mock-api-key",
+		APISecret:  "mock-api-secret",
+		Version:    "v1",
+	}
+
+	result, err := client.GetExecutionTotals(123)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, uint64(123), result.Data.AccountID)
+	assert.Equal(t, uint64(100), result.Data.Scheduled)
+	assert.Equal(t, uint64(80), result.Data.Success)
+	assert.Equal(t, uint64(20), result.Data.Failed)
+}
+
+func TestCleanupOldExecutionLogs(t *testing.T) {
+	mockResponse := CleanupOldLogsResponse{
+		Success: true,
+		Data: struct {
+			Message string `json:"message"`
+		}{
+			Message: "Old execution logs cleaned up successfully for account 123",
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/executions/cleanup-old-logs", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
+
+		// Verify request body
+		var requestBody CleanupOldLogsRequestBody
+		json.NewDecoder(r.Body).Decode(&requestBody)
+		assert.Equal(t, "123", requestBody.AccountID)
+		assert.Equal(t, 6, requestBody.RetentionMonths)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	client := &Client{
+		BaseURL:    u,
+		HTTPClient: server.Client(),
+		APIKey:     "mock-api-key",
+		APISecret:  "mock-api-secret",
+		Version:    "v1",
+	}
+
+	result, err := client.CleanupOldExecutionLogs("123", 6)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Contains(t, result.Data.Message, "cleaned up successfully")
+}

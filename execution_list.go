@@ -64,7 +64,7 @@ func (c *Client) GetDateRangeAnalytics(params GetDateRangeAnalyticsParams) (*Dat
 		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
 	}
 
-	req, err := c.newRequestWithQuery("GET", "/executions-summary", nil, queryParams, accountIDOverride)
+	req, err := c.newRequestWithQuery("GET", "/executions/analytics", nil, queryParams, accountIDOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -85,12 +85,41 @@ func (c *Client) GetExecutionTotals(accountID int64) (*ExecutionTotalsAPIRespons
 		accountIDOverride = fmt.Sprintf("%d", accountID)
 	}
 
-	req, err := c.newRequestWithQuery("GET", "/executions-totals", nil, nil, accountIDOverride)
+	req, err := c.newRequestWithQuery("GET", "/executions/totals", nil, nil, accountIDOverride)
 	if err != nil {
 		return nil, err
 	}
 
 	var result ExecutionTotalsAPIResponse
+	err = c.do(req, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// CleanupOldExecutionLogs cleans up old execution logs for an account based on retention period
+// accountIDOverride is optional - if provided, overrides the client's default account ID
+func (c *Client) CleanupOldExecutionLogs(accountID string, retentionMonths int, accountIDOverride ...string) (*CleanupOldLogsResponse, error) {
+	requestBody := CleanupOldLogsRequestBody{
+		AccountID:       accountID,
+		RetentionMonths: retentionMonths,
+	}
+
+	var accountIDHeader string
+	if len(accountIDOverride) > 0 && accountIDOverride[0] != "" {
+		accountIDHeader = accountIDOverride[0]
+	} else {
+		accountIDHeader = accountID
+	}
+
+	req, err := c.newRequest("POST", "/executions/cleanup-old-logs", requestBody, accountIDHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CleanupOldLogsResponse
 	err = c.do(req, &result)
 	if err != nil {
 		return nil, err
