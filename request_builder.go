@@ -39,7 +39,7 @@ func (c *Client) newRequest(method, endpoint string, body interface{}, accountID
 	} else if c.APIKey != "" && c.APISecret != "" {
 		// API Key + Secret authentication
 		req.Header.Set("X-API-Key", c.APIKey)
-		req.Header.Set("X-API-Secret", c.APISecret)
+		req.Header.Set("X-Secret-Key", c.APISecret)
 	}
 
 	// Add account ID based on override/body/client default preferences
@@ -89,7 +89,7 @@ func (c *Client) newRequestWithQuery(method, endpoint string, body interface{}, 
 	} else if c.APIKey != "" && c.APISecret != "" {
 		// API Key + Secret authentication
 		req.Header.Set("X-API-Key", c.APIKey)
-		req.Header.Set("X-API-Secret", c.APISecret)
+		req.Header.Set("X-Secret-Key", c.APISecret)
 	}
 
 	// Add account ID based on override/body/client default preferences

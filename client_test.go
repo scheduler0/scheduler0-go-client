@@ -71,7 +71,7 @@ func TestListCredentials(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/credentials", r.URL.Path)
 		assert.Equal(t, "mock-api-key", r.Header.Get("X-API-Key"))
-		assert.Equal(t, "mock-api-secret", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "mock-api-secret", r.Header.Get("X-Secret-Key"))
 		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		// Check query parameters
 		assert.Equal(t, "10", r.URL.Query().Get("limit"))
@@ -115,7 +115,7 @@ func TestCreateCredential(t *testing.T) {
 		assert.Equal(t, "/api/v1/credentials", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "mock-api-key", r.Header.Get("X-API-Key"))
-		assert.Equal(t, "mock-api-secret", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "mock-api-secret", r.Header.Get("X-Secret-Key"))
 		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
@@ -200,7 +200,7 @@ func TestGetCredential(t *testing.T) {
 		assert.Equal(t, "/api/v1/credentials/1", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "mock-api-key", r.Header.Get("X-API-Key"))
-		assert.Equal(t, "mock-api-secret", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "mock-api-secret", r.Header.Get("X-Secret-Key"))
 		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
@@ -1073,7 +1073,7 @@ func TestNoAuthClient(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Should not have any auth headers
 		assert.Equal(t, "", r.Header.Get("X-API-Key"))
-		assert.Equal(t, "", r.Header.Get("X-API-Secret"))
+		assert.Equal(t, "", r.Header.Get("X-Secret-Key"))
 		assert.Equal(t, "", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "success": true})
