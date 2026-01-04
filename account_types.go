@@ -43,3 +43,10 @@ type AccountExecutionCountResponse struct {
 	Data    AccountJobExecutionsCount `json:"data"`
 }
 
+// AccountExecutionCountIncreaseResponse represents the response for increasing account execution count
+type AccountExecutionCountIncreaseResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		NewExecutionCount uint64 `json:"newExecutionCount"`
+	} `json:"data"`
+}
