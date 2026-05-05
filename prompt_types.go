@@ -10,7 +10,8 @@ type PromptJobRequest struct {
 	Timezone   string   `json:"timezone,omitempty"`
 }
 
-// PromptJobResponse represents a job configuration generated from AI prompt
+// PromptJobResponse represents a single job configuration generated from AI prompt.
+// It maps to the objects inside each provider result's "jobs" array.
 type PromptJobResponse struct {
 	Kind           string                 `json:"kind,omitempty"`
 	Purpose        string                 `json:"purpose,omitempty"`
@@ -26,5 +27,17 @@ type PromptJobResponse struct {
 	EndDate        *string                `json:"endDate,omitempty"`
 	Timezone       string                 `json:"timezone,omitempty"`
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// PromptProviderResult wraps the per-provider metadata together with the jobs
+// it produced. The API returns one entry per AI provider that was consulted.
+type PromptProviderResult struct {
+	Provider     string              `json:"provider"`
+	Model        string              `json:"model"`
+	Jobs         []PromptJobResponse `json:"jobs"`
+	InputTokens  int                 `json:"inputTokens"`
+	OutputTokens int                 `json:"outputTokens"`
+	TotalTokens  int                 `json:"totalTokens"`
+	DurationMs   int64               `json:"durationMs"`
 }
 

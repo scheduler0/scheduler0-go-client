@@ -1,9 +1,10 @@
 package scheduler0_go_client
 
-// RestoreDatabase initiates a restore from a backup file
-func (c *Client) RestoreDatabase(backupPath string) (*BackupRestoreResponse, error) {
+// RestoreDatabase initiates a restore from a backup file.
+// fileName is the backup file name (S3 object key when S3 is configured, or local file path otherwise).
+func (c *Client) RestoreDatabase(fileName string) (*BackupRestoreResponse, error) {
 	reqBody := RestoreRequest{
-		BackupPath: backupPath,
+		FilePath: fileName,
 	}
 
 	req, err := c.newRequest("POST", "/cluster/restore", reqBody, "")
