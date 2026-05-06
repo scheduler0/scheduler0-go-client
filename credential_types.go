@@ -2,18 +2,20 @@ package scheduler0_go_client
 
 // Credential represents a credential
 type Credential struct {
-	ID           int64   `json:"id"`
-	AccountID    int64   `json:"accountId"`
-	Archived     bool    `json:"archived"`
-	APIKey       string  `json:"apiKey"`
-	APISecret    string  `json:"apiSecret"`
-	DateCreated  string  `json:"dateCreated"`
-	DateModified *string `json:"dateModified"`
-	DateDeleted  *string `json:"dateDeleted"`
-	CreatedBy    string  `json:"createdBy"`
-	ModifiedBy   *string `json:"modifiedBy"`
-	DeletedBy    *string `json:"deletedBy"`
-	ArchivedBy   *string `json:"archivedBy"`
+	ID           int64    `json:"id"`
+	AccountID    int64    `json:"accountId"`
+	Archived     bool     `json:"archived"`
+	APIKey       string   `json:"apiKey"`
+	APISecret    string   `json:"apiSecret"`
+	DateCreated  string   `json:"dateCreated"`
+	DateModified *string  `json:"dateModified"`
+	DateDeleted  *string  `json:"dateDeleted"`
+	CreatedBy    string   `json:"createdBy"`
+	ModifiedBy   *string  `json:"modifiedBy"`
+	DeletedBy    *string  `json:"deletedBy"`
+	ArchivedBy   *string  `json:"archivedBy"`
+	ExpiresAt    *string  `json:"expiresAt,omitempty"`
+	Scopes       []string `json:"scopes,omitempty"`
 }
 
 // CredentialResponse represents the response for a single credential
@@ -42,11 +44,13 @@ type ListCredentialsParams struct {
 	OrderByDirection string // Direction to order ("asc" or "desc")
 }
 
-// CredentialCreateRequestBody represents the request body for creating a credential
+// CredentialCreateRequestBody represents the request body for creating a credential.
+// Scopes must be a subset of {"read","write","execute"} and is required by the API.
 type CredentialCreateRequestBody struct {
-	AccountID int64  `json:"-"`
-	Archived  bool   `json:"archived,omitempty"`
-	CreatedBy string `json:"createdBy"`
+	AccountID int64    `json:"-"`
+	Archived  bool     `json:"archived,omitempty"`
+	CreatedBy string   `json:"createdBy"`
+	Scopes    []string `json:"scopes"`
 }
 
 // CredentialUpdateRequestBody represents the request body for updating a credential
