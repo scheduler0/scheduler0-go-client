@@ -30,7 +30,7 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
 
 - **Executors Management**
   - List executors with pagination and ordering
-  - Create new executors (webhook, cloud function, container)
+  - Create new executors (webhook, cloud function)
   - Get executor details
   - Update executors
   - Delete executors
@@ -341,7 +341,7 @@ promptRequest := &scheduler0_go_client.PromptJobRequest{
     Events:     []string{"weekly_cycle"},
     Recipients: []string{"team@example.com", "manager@example.com"},
     Channels:   []string{"email"},
-    Timezone:   "America/New_York",
+    Timezone:   "America/New_York", // Optional IANA timezone; defaults to "UTC" when omitted.
 }
 
 // Generate job configurations from the prompt
@@ -394,6 +394,8 @@ for _, config := range jobConfigs {
 - Account ID header
 - Sufficient credits (1 credit per prompt execution)
 
+The `Timezone` field is optional. When omitted, the AI assumes `UTC`. When set to an IANA name (e.g. `"America/New_York"`), the AI interprets relative phrases like *"9am tomorrow"* in that timezone and emits `nextRunAt` / `startDate` / `endDate` with the matching numeric offset. Invalid timezone strings are rejected by the API with `400 Bad Request`.
+
 ### Managing Async Tasks
 
 ```go
@@ -422,7 +424,6 @@ fmt.Printf("Raft State: %s\n", health.Data.RaftStats.State)
 ### Executor Types
 - `"webhook_url"` - HTTP webhook executor
 - `"cloud_function"` - Cloud function executor
-- `"container"` - Container executor
 
 ### Webhook Methods
 - `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`

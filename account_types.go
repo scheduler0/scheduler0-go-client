@@ -32,9 +32,31 @@ type AccountJobExecutionsCount struct {
 	ID             int64  `json:"id"`
 	AccountID      int64  `json:"accountId"`
 	ExecutionCount int64  `json:"executionCount"`
+	Tokens         int64  `json:"tokens"`
 	DateCreated    string `json:"dateCreated"`
 	DateModified   string `json:"dateModified"`
 	NextResetDate  string `json:"nextResetDate"`
+}
+
+// AccountTokensResponse represents the response for getting account token balance
+type AccountTokensResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Tokens int64 `json:"tokens"`
+	} `json:"data"`
+}
+
+// AccountTokensAddRequest represents the request body for adding tokens
+type AccountTokensAddRequest struct {
+	Amount int64 `json:"amount"`
+}
+
+// AccountTokensAddResponse represents the response for adding tokens to an account
+type AccountTokensAddResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		NewBalance int64 `json:"newBalance"`
+	} `json:"data"`
 }
 
 // AccountExecutionCountResponse represents the response for account execution count

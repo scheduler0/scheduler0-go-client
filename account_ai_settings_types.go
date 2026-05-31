@@ -2,7 +2,7 @@ package scheduler0_go_client
 
 // AccountAISettings holds per-account AI provider credentials.
 type AccountAISettings struct {
-	AccountID          string `json:"account_id,omitempty"`
+	AccountID          uint64 `json:"account_id,omitempty"`
 	Provider           string `json:"provider,omitempty"`
 	Model              string `json:"model,omitempty"`
 	OpenAIAPIKey       string `json:"openai_api_key,omitempty"`
