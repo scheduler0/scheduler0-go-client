@@ -1149,14 +1149,23 @@ func TestRemoveAllFeaturesFromAccount(t *testing.T) {
 }
 
 func TestCreateJobFromPrompt(t *testing.T) {
-	mockResponse := []PromptJobResponse{
-		{
-			Kind:           "FOLLOW_UP",
-			Purpose:        "Send follow-up email",
-			Subject:        "Follow up on your request",
-			CronExpression: "0 9 * * *",
-			Recurrence:     "every day",
-			Timezone:       "UTC",
+	mockResponse := promptJobsEnvelope{
+		Success: true,
+		Data: []PromptProviderResult{
+			{
+				Provider: "openai",
+				Model:    "gpt-4",
+				Jobs: []PromptJobResponse{
+					{
+						Kind:           "FOLLOW_UP",
+						Purpose:        "Send follow-up email",
+						Subject:        "Follow up on your request",
+						CronExpression: "0 9 * * *",
+						Recurrence:     "every day",
+						Timezone:       "UTC",
+					},
+				},
+			},
 		},
 	}
 
