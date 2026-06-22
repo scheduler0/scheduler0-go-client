@@ -14,6 +14,8 @@ type Executor struct {
 	WebhookURL       string  `json:"webhookUrl"`
 	WebhookSecret    string  `json:"webhookSecret"`
 	WebhookMethod    string  `json:"webhookMethod"`
+	Command          string  `json:"command,omitempty"`
+	WorkingDir       string  `json:"workingDir,omitempty"`
 	DateCreated      string  `json:"dateCreated"`
 	DateModified     *string `json:"dateModified"`
 	DateDeleted      *string `json:"dateDeleted"`
@@ -41,6 +43,8 @@ type ExecutorRequestBody struct {
 	WebhookURL       string `json:"webhookUrl,omitempty"`
 	WebhookSecret    string `json:"webhookSecret,omitempty"`
 	WebhookMethod    string `json:"webhookMethod,omitempty"`
+	Command          string `json:"command,omitempty"`
+	WorkingDir       string `json:"workingDir,omitempty"`
 	CreatedBy        string `json:"createdBy"`
 }
 
@@ -57,6 +61,8 @@ type ExecutorUpdateRequestBody struct {
 	WebhookURL       string `json:"webhookUrl,omitempty"`
 	WebhookSecret    string `json:"webhookSecret,omitempty"`
 	WebhookMethod    string `json:"webhookMethod,omitempty"`
+	Command          string `json:"command,omitempty"`
+	WorkingDir       string `json:"workingDir,omitempty"`
 	ModifiedBy       string `json:"modifiedBy"`
 }
 

@@ -1,21 +1,29 @@
 package scheduler0_go_client
 
-// Credential represents a credential
+// Credential represents a credential returned by the Scheduler0 API.
+//
+// API key / secret model:
+//   - APIKey is a stable plaintext identifier stored as-is in the DB. It is
+//     always present in API responses.
+//   - APISecret (the AES-GCM encrypted form) is never included in API responses.
+//     Clients must send the original plaintext secret they received at creation.
+//   - PlaintextSecret is returned exactly once, in the 201 create response.
+//     It is never stored server-side and cannot be retrieved afterwards.
 type Credential struct {
-	ID           int64    `json:"id"`
-	AccountID    int64    `json:"accountId"`
-	Archived     bool     `json:"archived"`
-	APIKey       string   `json:"apiKey"`
-	APISecret    string   `json:"apiSecret"`
-	DateCreated  string   `json:"dateCreated"`
-	DateModified *string  `json:"dateModified"`
-	DateDeleted  *string  `json:"dateDeleted"`
-	CreatedBy    string   `json:"createdBy"`
-	ModifiedBy   *string  `json:"modifiedBy"`
-	DeletedBy    *string  `json:"deletedBy"`
-	ArchivedBy   *string  `json:"archivedBy"`
-	ExpiresAt    *string  `json:"expiresAt,omitempty"`
-	Scopes       []string `json:"scopes,omitempty"`
+	ID              int64    `json:"id"`
+	AccountID       int64    `json:"accountId"`
+	Archived        bool     `json:"archived"`
+	APIKey          string   `json:"apiKey"`
+	PlaintextSecret string   `json:"plaintextSecret,omitempty"` // Returned once on creation only
+	DateCreated     string   `json:"dateCreated"`
+	DateModified    *string  `json:"dateModified"`
+	DateDeleted     *string  `json:"dateDeleted"`
+	CreatedBy       string   `json:"createdBy"`
+	ModifiedBy      *string  `json:"modifiedBy"`
+	DeletedBy       *string  `json:"deletedBy"`
+	ArchivedBy      *string  `json:"archivedBy"`
+	ExpiresAt       *string  `json:"expiresAt,omitempty"`
+	Scopes          []string `json:"scopes,omitempty"`
 }
 
 // CredentialResponse represents the response for a single credential
