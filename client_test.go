@@ -1531,3 +1531,92 @@ func TestCleanupOldExecutionLogs(t *testing.T) {
 	assert.True(t, result.Success)
 	assert.Contains(t, result.Data.Message, "cleaned up successfully")
 }
+
+func TestRegisterLocalExecutor(t *testing.T) {
+	mockResponse := LocalExecutorRegisterResponse{Success: true}
+	mockResponse.Data.ID = 42
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/local-executors", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.RegisterLocalExecutor(&LocalExecutorRegisterRequest{
+		Name:       "My Local Executor",
+		Command:    "/usr/local/bin/process-job.sh",
+		WorkingDir: "/home/deploy/app",
+		CreatedBy:  "user-1",
+	})
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, int64(42), result.Data.ID)
+}
+
+func TestPullLocalExecutorJobs(t *testing.T) {
+	mockResponse := LocalExecutorJobsResponse{
+		Success: true,
+		Data: []Job{
+			{ID: 1, AccountID: 123, ProjectID: 456, Spec: "* * * * *", Timezone: "UTC"},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/local-executors/42/jobs", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.PullLocalExecutorJobs(42)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, int64(1), result.Data[0].ID)
+}
+
+func TestReportLocalExecutions(t *testing.T) {
+	mockResponse := ReportLocalExecutionsResponse{Success: true}
+	mockResponse.Data.Committed = 2
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/local-executors/42/executions", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var reports []LocalExecutionReport
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&reports))
+		assert.Len(t, reports, 2)
+		assert.Equal(t, "exec-1", reports[0].UniqueID)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	reports := []LocalExecutionReport{
+		{
+			JobID:             1,
+			UniqueID:          "exec-1",
+			State:             1,
+			LastExecutionTime: "2025-01-01T00:00:00Z",
+			NextExecutionTime: "2025-01-02T00:00:00Z",
+			ExecutionVersion:  5,
+			JobQueueVersion:   2,
+		},
+		{JobID: 2, UniqueID: "exec-2", State: 2},
+	}
+
+	result, err := client.ReportLocalExecutions(42, reports)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, 2, result.Data.Committed)
+}

@@ -10,6 +10,7 @@ type AccountAISettings struct {
 	BedrockAccessKeyID string `json:"bedrock_access_key_id,omitempty"`
 	BedrockSecretKey   string `json:"bedrock_secret_key,omitempty"`
 	BedrockRegion      string `json:"bedrock_region,omitempty"`
+	OpenRouterAPIKey   string `json:"openrouter_api_key,omitempty"`
 }
 
 // AccountAISettingsResponse wraps the standard API envelope for a single settings object.

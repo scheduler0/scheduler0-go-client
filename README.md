@@ -1,7 +1,7 @@
 # Scheduler0 Go Client
 
 <div align="center">
-  <img src="logo.png" alt="Scheduler0 Logo" width="200">
+  <img src="https://raw.githubusercontent.com/scheduler0/scheduler0-go-client/main/logo.png" alt="Scheduler0 Logo" width="200">
 </div>
 
 A Go client library for interacting with the [Scheduler0 API](https://scheduler0.com). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
@@ -12,21 +12,28 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
   - Create accounts
   - Get account details
   - Add/remove features from accounts
+  - Get/increase the monthly execution count
+  - Get/add platform tokens
+  - Configure per-account AI provider settings (BYOK)
 
 - **Feature Management**
   - List available features
+  - Add/remove all features for an account
 
 - **Credentials Management**
   - List credentials with pagination and ordering
   - Create new credentials
   - Get credential details
   - Update credentials
-  - Delete credentials
+  - Delete and archive credentials
+  - Rotate the server secret key
 
 - **Executions Management**
   - List job executions with date filtering
   - Filter by project ID and job ID
   - View execution details and logs
+  - Date-range analytics and lifetime totals
+  - Clean up old execution logs
 
 - **Executors Management**
   - List executors with pagination and ordering
@@ -34,6 +41,15 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
   - Get executor details
   - Update executors
   - Delete executors
+
+- **Local Executors Management**
+  - Register local executors
+  - Pull assigned jobs for a local executor
+  - Report local execution results in batches
+
+- **Backup & Restore**
+  - Start an online database backup
+  - Restore from a backup file
 
 - **Projects Management**
   - List projects with pagination
@@ -138,6 +154,32 @@ result, err := client.AddFeatureToAccount("account-id", feature)
 
 // Remove feature from account
 err := client.RemoveFeatureFromAccount("account-id", feature)
+
+// Get / increase the account's monthly execution count
+count, err := client.GetAccountExecutionCount("account-id")
+increased, err := client.IncreaseAccountExecutionCount("account-id", 10000)
+
+// Get / add platform tokens
+tokens, err := client.GetAccountTokens("account-id")
+added, err := client.AddAccountTokens("account-id", 1000)
+```
+
+> **Note:** Account, token, and execution-count endpoints are self-hosting only and require Basic Authentication.
+
+### AI Provider Settings (Bring Your Own Key)
+
+Configure a per-account model provider and key so `CreateJobFromPrompt` uses your own credentials. Supported providers: `openai`, `anthropic`, `bedrock`. Credential fields are encrypted at rest and never returned in plaintext by `GetAccountAISettings`.
+
+```go
+// Read current settings (keys are redacted)
+settings, err := client.GetAccountAISettings("account-id")
+
+// Save settings
+saved, err := client.UpsertAccountAISettings("account-id", &scheduler0_go_client.AccountAISettings{
+    Provider:        "anthropic",
+    Model:           "claude-sonnet-4-5", // optional; provider default used when empty
+    AnthropicAPIKey: "sk-ant-...",
+})
 ```
 
 ### Managing Features
@@ -145,6 +187,10 @@ err := client.RemoveFeatureFromAccount("account-id", feature)
 ```go
 // List all available features
 features, err := client.ListFeatures()
+
+// Add or remove every feature for an account (self-hosting)
+err := client.AddAllFeaturesToAccount("account-id")
+err := client.RemoveAllFeaturesFromAccount("account-id")
 ```
 
 ### Managing Credentials
@@ -169,6 +215,15 @@ credential, err := client.UpdateCredential("credential-id")
 
 // Delete a credential
 err := client.DeleteCredential("credential-id")
+
+// Archive a credential (disables it without deleting)
+err := client.ArchiveCredential("credential-id", "user@example.com")
+
+// Re-encrypt stored secrets (credential secrets + executor cloud keys + AI provider
+// keys) with a new server secret key (self-hosting). Update the server's SecretKey and
+// reload it first, then call this with the previous key.
+rotated, err := client.RotateSecret("<old-hex-secret-key>")
+// rotated.Data.CredentialsRotated, rotated.Data.ExecutorsRotated, rotated.Data.AISettingsRotated
 ```
 
 ### Managing Executions
@@ -184,6 +239,30 @@ executions, err := client.ListExecutions(scheduler0_go_client.ListExecutionsPara
     Limit:     10,                      // Required: Maximum number of items
     Offset:    0,                       // Required: Number of items to skip
 })
+
+// Execution counts grouped into per-minute buckets for a time window
+analytics, err := client.GetDateRangeAnalytics(scheduler0_go_client.GetDateRangeAnalyticsParams{
+    StartDate: "2024-01-01",  // YYYY-MM-DD
+    StartTime: "00:00:00",    // HH:MM:SS or HH:MM
+})
+
+// Lifetime totals (scheduled / success / failed) for the account
+totals, err := client.GetExecutionTotals(123)
+
+// Delete execution logs older than a retention window (self-hosting; peer auth)
+result, err := client.CleanupOldExecutionLogs("123", 6) // retentionMonths
+```
+
+### Backup and Restore
+
+Database backup/restore for self-hosted clusters (Basic Authentication).
+
+```go
+// Start an online backup
+backup, err := client.BackupDatabase()
+
+// Restore from a backup file (S3 object key when S3 is configured, else local path)
+restore, err := client.RestoreDatabase("backup-2024-01-01.db")
 ```
 
 ### Managing Executors
@@ -232,6 +311,36 @@ result, err := client.UpdateExecutor("executor-id", update)
 
 // Delete an executor
 err := client.DeleteExecutor("executor-id")
+```
+
+### Managing Local Executors
+
+Local executors run jobs as shell commands on a machine you control. Register one, then the `scheduler0-cli` process pulls assigned jobs and reports results back.
+
+```go
+// Register a local executor (the server sets the type to "local")
+reg, err := client.RegisterLocalExecutor(&scheduler0_go_client.LocalExecutorRegisterRequest{
+    Name:       "My Local Executor",
+    Command:    "/usr/local/bin/process-job.sh",
+    WorkingDir: "/home/deploy/app",
+    CreatedBy:  "user-1",
+})
+executorID := reg.Data.ID
+
+// Pull the active jobs assigned to a local executor (also renews its lease)
+jobs, err := client.PullLocalExecutorJobs(executorID)
+
+// Report a batch of execution results (state: 0=scheduled, 1=success, 2=failed)
+result, err := client.ReportLocalExecutions(executorID, []scheduler0_go_client.LocalExecutionReport{
+    {
+        JobID:             1,
+        UniqueID:          "exec-1",
+        State:             1,
+        LastExecutionTime: "2025-01-01T00:00:00Z",
+        NextExecutionTime: "2025-01-02T00:00:00Z",
+    },
+})
+_ = result.Data.Committed
 ```
 
 ### Managing Projects
