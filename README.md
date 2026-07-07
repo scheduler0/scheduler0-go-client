@@ -164,7 +164,7 @@ tokens, err := client.GetAccountTokens("account-id")
 added, err := client.AddAccountTokens("account-id", 1000)
 ```
 
-> **Note:** Account, token, and execution-count endpoints are self-hosting only and require Basic Authentication.
+> **Note:** Account, token, and execution-count endpoints are account/cluster-level operations. They require a credential carrying the **`admin`** scope, or Basic Authentication (operator bootstrap).
 
 ### AI Provider Settings (Bring Your Own Key)
 
@@ -204,8 +204,16 @@ credentials, err := client.ListCredentials(scheduler0_go_client.ListCredentialsP
     OrderByDirection: "desc",
 })
 
-// Create a new credential
-credential, err := client.CreateCredential()
+// Create a new credential. Scopes must be a non-empty subset of
+// read/write/execute/admin. Optionally request a shorter TTL via ExpiresInSeconds
+// (the server clamps it; omit for the default 90-day expiry). Granting "admin"
+// requires an operator or an existing admin credential.
+ttl := int64(8 * 60 * 60) // 8 hours
+credential, err := client.CreateCredential(&scheduler0_go_client.CredentialCreateRequestBody{
+    CreatedBy:        "user@example.com",
+    Scopes:           []string{"read", "write", "execute"},
+    ExpiresInSeconds: &ttl, // optional
+})
 
 // Get a specific credential
 credential, err := client.GetCredential("credential-id")
@@ -255,7 +263,7 @@ result, err := client.CleanupOldExecutionLogs("123", 6) // retentionMonths
 
 ### Backup and Restore
 
-Database backup/restore for self-hosted clusters (Basic Authentication).
+Database backup/restore for self-hosted clusters (requires an `admin`-scoped credential, or Basic Authentication).
 
 ```go
 // Start an online backup
