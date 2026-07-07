@@ -443,6 +443,8 @@ err := client.DeleteJob("job-id")
 Create job configurations from natural language prompts using AI:
 
 ```go
+import "errors"
+
 // Create job configurations from a natural language prompt
 promptRequest := &scheduler0_go_client.PromptJobRequest{
     Prompt:     "Send weekly reports every Monday at 9 AM",
@@ -453,49 +455,76 @@ promptRequest := &scheduler0_go_client.PromptJobRequest{
     Timezone:   "America/New_York", // Optional IANA timezone; defaults to "UTC" when omitted.
 }
 
-// Generate job configurations from the prompt
-// Note: This endpoint requires credits and validates credentials
-jobConfigs, err := client.CreateJobFromPrompt(promptRequest)
+// Returns a *PromptResult containing providers and classification
+promptResult, err := client.CreateJobFromPrompt(promptRequest)
 if err != nil {
+    // Check whether the intent guardrail rejected/clarified the prompt
+    var skipped *scheduler0_go_client.PromptSkippedError
+    if errors.As(err, &skipped) {
+        fmt.Printf("Prompt skipped: %s\n", skipped.Message)
+        if skipped.Classification != nil {
+            fmt.Printf("Decision: %s\n", skipped.Classification.Decision)
+            fmt.Printf("Reason: %s\n", skipped.Classification.Reason)
+        }
+        return
+    }
     log.Fatal(err)
 }
 
-// jobConfigs is an array of PromptJobResponse with generated configurations
-for _, config := range jobConfigs {
-    fmt.Printf("Kind: %s\n", config.Kind)
-    fmt.Printf("Cron Expression: %s\n", config.CronExpression)
-    if config.NextRunAt != nil {
-        fmt.Printf("Next Run At: %s\n", *config.NextRunAt)
-    }
-    fmt.Printf("Recipients: %v\n", config.Recipients)
-    
-    // Use the generated configuration to create actual jobs
-    job := &scheduler0_go_client.JobRequestBody{
-        ProjectID:  123,
-        Timezone:   config.Timezone,
-        Spec:       config.CronExpression,
-        CreatedBy:  "ai-prompt",
-    }
-    
-    // Set optional fields if available
-    if config.StartDate != nil {
-        job.StartDate = *config.StartDate
-    }
-    if config.EndDate != nil {
-        job.EndDate = *config.EndDate
-    }
-    if config.Subject != "" {
-        job.Data = fmt.Sprintf(`{"subject": "%s", "recipients": %v}`, config.Subject, config.Recipients)
-    }
-    
-    result, err := client.CreateJob(job)
-    if err != nil {
-        log.Printf("Failed to create job: %v", err)
-        continue
-    }
-    
-    fmt.Printf("Job created with request ID: %s\n", result.Data)
+// Inspect the intent classification
+if promptResult.Classification != nil {
+    fmt.Printf("Decision: %s\n", promptResult.Classification.Decision)
+    fmt.Printf("Reason: %s\n", promptResult.Classification.Reason)
 }
+
+// Process each provider's job configurations
+for _, provider := range promptResult.Providers {
+    fmt.Printf("Provider: %s / %s\n", provider.Provider, provider.Model)
+    fmt.Printf("Tokens used: %d\n", provider.TotalTokens)
+    for _, config := range provider.Jobs {
+        fmt.Printf("Kind: %s\n", config.Kind)
+        fmt.Printf("Cron Expression: %s\n", config.CronExpression)
+        if config.NextRunAt != nil {
+            fmt.Printf("Next Run At: %s\n", *config.NextRunAt)
+        }
+        
+        job := &scheduler0_go_client.JobRequestBody{
+            ProjectID: 123,
+            Timezone:  config.Timezone,
+            Spec:      config.CronExpression,
+            CreatedBy: "ai-prompt",
+        }
+        if config.StartDate != nil {
+            job.StartDate = *config.StartDate
+        }
+        if config.Subject != "" {
+            job.Data = fmt.Sprintf(`{"subject": "%s"}`, config.Subject)
+        }
+        
+        result, err := client.CreateJob(job)
+        if err != nil {
+            log.Printf("Failed to create job: %v", err)
+            continue
+        }
+        fmt.Printf("Job created with request ID: %s\n", result.Data)
+    }
+}
+```
+
+### Classifying a prompt (without AI execution)
+
+Run only the intent classifier — no model is invoked and no credits are consumed:
+
+```go
+clf, err := client.ClassifyPrompt(&scheduler0_go_client.ClassifyPromptRequest{
+    Prompt: "What is Kubernetes?",
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Decision: %s\n", clf.Decision) // reject
+fmt.Printf("Reason:   %s\n", clf.Reason)
+```
 ```
 
 **Note**: The AI prompt endpoint requires:

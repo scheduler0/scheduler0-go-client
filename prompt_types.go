@@ -10,6 +10,11 @@ type PromptJobRequest struct {
 	Timezone   string   `json:"timezone,omitempty"`
 }
 
+// ClassifyPromptRequest is the request body for POST /prompt/classify.
+type ClassifyPromptRequest struct {
+	Prompt string `json:"prompt"`
+}
+
 // PromptJobResponse represents a single job configuration generated from AI prompt.
 // It maps to the objects inside each provider result's "jobs" array.
 type PromptJobResponse struct {
@@ -41,3 +46,27 @@ type PromptProviderResult struct {
 	DurationMs   int64               `json:"durationMs"`
 }
 
+// IntentClassification is the response from the edge intent classifier.
+type IntentClassification struct {
+	Text     string `json:"text"`
+	Decision string `json:"decision"`
+	Reason   string `json:"reason"`
+}
+
+// PromptResult is the top-level response body for POST /prompt.
+// Classification is nil when the intent guardrail is disabled or errored (fail-open).
+type PromptResult struct {
+	Providers      []PromptProviderResult `json:"providers"`
+	Classification *IntentClassification  `json:"classification,omitempty"`
+}
+
+// PromptSkippedError is returned when the intent guardrail rejected or clarified the
+// prompt (HTTP 422). Classification carries the full classifier output.
+type PromptSkippedError struct {
+	Message        string
+	Classification *IntentClassification
+}
+
+func (e *PromptSkippedError) Error() string {
+	return e.Message
+}
