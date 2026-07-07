@@ -59,6 +59,9 @@ type CredentialCreateRequestBody struct {
 	Archived  bool     `json:"archived,omitempty"`
 	CreatedBy string   `json:"createdBy"`
 	Scopes    []string `json:"scopes"`
+	// ExpiresInSeconds optionally requests a shorter credential lifetime. The
+	// server clamps it to its allowed range; nil uses the server default expiry.
+	ExpiresInSeconds *int64 `json:"expiresInSeconds,omitempty"`
 }
 
 // CredentialUpdateRequestBody represents the request body for updating a credential
