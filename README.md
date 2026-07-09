@@ -657,15 +657,3 @@ go test -v -race ./...
 go test -v -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
-
-### CI/CD
-
-This project uses GitHub Actions for continuous integration. Tests are automatically run on:
-- Push to `main`, `master`, or `develop` branches
-- Pull requests to `main`, `master`, or `develop` branches
-
-The CI pipeline tests against Go 1.23 and 1.24.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
