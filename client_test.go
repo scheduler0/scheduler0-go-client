@@ -1145,25 +1145,22 @@ func TestRemoveAllFeaturesFromAccount(t *testing.T) {
 }
 
 func TestCreateJobFromPrompt(t *testing.T) {
-	mockResponse := promptJobsEnvelope{
-		Success: true,
-		Data: []PromptProviderResult{
+	provider := PromptProviderResult{
+		Provider: "openai",
+		Model:    "gpt-4",
+		Jobs: []PromptJobResponse{
 			{
-				Provider: "openai",
-				Model:    "gpt-4",
-				Jobs: []PromptJobResponse{
-					{
-						Kind:           "FOLLOW_UP",
-						Purpose:        "Send follow-up email",
-						Subject:        "Follow up on your request",
-						CronExpression: "0 9 * * *",
-						Recurrence:     "every day",
-						Timezone:       "UTC",
-					},
-				},
+				Kind:           "FOLLOW_UP",
+				Purpose:        "Send follow-up email",
+				Subject:        "Follow up on your request",
+				CronExpression: "0 9 * * *",
+				Recurrence:     "every day",
+				Timezone:       "UTC",
 			},
 		},
 	}
+	mockResponse := promptJobsEnvelope{Success: true}
+	mockResponse.Data.Providers = []PromptProviderResult{provider}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/prompt", r.URL.Path)
@@ -1184,9 +1181,11 @@ func TestCreateJobFromPrompt(t *testing.T) {
 
 	result, err := client.CreateJobFromPrompt(body)
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "FOLLOW_UP", result[0].Kind)
-	assert.Equal(t, "Send follow-up email", result[0].Purpose)
+	assert.NotNil(t, result)
+	assert.Len(t, result.Providers, 1)
+	assert.Len(t, result.Providers[0].Jobs, 1)
+	assert.Equal(t, "FOLLOW_UP", result.Providers[0].Jobs[0].Kind)
+	assert.Equal(t, "Send follow-up email", result.Providers[0].Jobs[0].Purpose)
 }
 
 func TestBatchCreateJobs(t *testing.T) {

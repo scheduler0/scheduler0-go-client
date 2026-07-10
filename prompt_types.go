@@ -1,5 +1,7 @@
 package scheduler0_go_client
 
+import "fmt"
+
 // PromptJobRequest represents the request body for creating jobs from AI prompt
 type PromptJobRequest struct {
 	Prompt     string   `json:"prompt"`
@@ -39,5 +41,33 @@ type PromptProviderResult struct {
 	OutputTokens int                 `json:"outputTokens"`
 	TotalTokens  int                 `json:"totalTokens"`
 	DurationMs   int64               `json:"durationMs"`
+}
+
+// PromptClassification contains the intent-guardrail decision for a prompt.
+type PromptClassification struct {
+	Decision string `json:"decision"`
+	Reason   string `json:"reason"`
+}
+
+// PromptResponse is the structured result of CreateJobFromPrompt. It exposes
+// the per-provider results and an optional intent-guardrail classification.
+type PromptResponse struct {
+	Providers      []PromptProviderResult `json:"providers"`
+	Classification *PromptClassification  `json:"classification,omitempty"`
+}
+
+// PromptSkippedError is returned by CreateJobFromPrompt when the intent
+// guardrail rejects the prompt (HTTP 422). It carries the guardrail's decision
+// and reason so the caller can surface them without parsing raw HTTP bodies.
+type PromptSkippedError struct {
+	Message        string
+	Classification *PromptClassification
+}
+
+func (e *PromptSkippedError) Error() string {
+	if e.Classification != nil {
+		return fmt.Sprintf("prompt skipped: %s — %s", e.Classification.Decision, e.Classification.Reason)
+	}
+	return fmt.Sprintf("prompt skipped: %s", e.Message)
 }
 
