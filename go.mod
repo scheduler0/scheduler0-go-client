@@ -1,6 +1,6 @@
 module github.com/scheduler0/scheduler0-go-client
 
-go 1.25.0
+go 1.26.5
 
 // Version v1.1.3 - Added audit fields (createdBy, modifiedBy, deletedBy) to all request bodies
 
