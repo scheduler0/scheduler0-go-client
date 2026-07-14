@@ -1,7 +1,5 @@
 package scheduler0_go_client
 
-import "fmt"
-
 // PromptJobRequest represents the request body for creating jobs from AI prompt
 type PromptJobRequest struct {
 	Prompt     string   `json:"prompt"`
@@ -10,6 +8,11 @@ type PromptJobRequest struct {
 	Recipients []string `json:"recipients,omitempty"`
 	Channels   []string `json:"channels,omitempty"`
 	Timezone   string   `json:"timezone,omitempty"`
+}
+
+// ClassifyPromptRequest is the request body for POST /prompt/classify.
+type ClassifyPromptRequest struct {
+	Prompt string `json:"prompt"`
 }
 
 // PromptJobResponse represents a single job configuration generated from AI prompt.
@@ -43,31 +46,27 @@ type PromptProviderResult struct {
 	DurationMs   int64               `json:"durationMs"`
 }
 
-// PromptClassification contains the intent-guardrail decision for a prompt.
-type PromptClassification struct {
+// IntentClassification is the response from the edge intent classifier.
+type IntentClassification struct {
+	Text     string `json:"text"`
 	Decision string `json:"decision"`
 	Reason   string `json:"reason"`
 }
 
-// PromptResponse is the structured result of CreateJobFromPrompt. It exposes
-// the per-provider results and an optional intent-guardrail classification.
-type PromptResponse struct {
+// PromptResult is the top-level response body for POST /prompt.
+// Classification is nil when the intent guardrail is disabled or errored (fail-open).
+type PromptResult struct {
 	Providers      []PromptProviderResult `json:"providers"`
-	Classification *PromptClassification  `json:"classification,omitempty"`
+	Classification *IntentClassification  `json:"classification,omitempty"`
 }
 
-// PromptSkippedError is returned by CreateJobFromPrompt when the intent
-// guardrail rejects the prompt (HTTP 422). It carries the guardrail's decision
-// and reason so the caller can surface them without parsing raw HTTP bodies.
+// PromptSkippedError is returned when the intent guardrail rejected or clarified the
+// prompt (HTTP 422). Classification carries the full classifier output.
 type PromptSkippedError struct {
 	Message        string
-	Classification *PromptClassification
+	Classification *IntentClassification
 }
 
 func (e *PromptSkippedError) Error() string {
-	if e.Classification != nil {
-		return fmt.Sprintf("prompt skipped: %s — %s", e.Classification.Decision, e.Classification.Reason)
-	}
-	return fmt.Sprintf("prompt skipped: %s", e.Message)
+	return e.Message
 }
-

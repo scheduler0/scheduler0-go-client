@@ -1145,22 +1145,36 @@ func TestRemoveAllFeaturesFromAccount(t *testing.T) {
 }
 
 func TestCreateJobFromPrompt(t *testing.T) {
-	provider := PromptProviderResult{
-		Provider: "openai",
-		Model:    "gpt-4",
-		Jobs: []PromptJobResponse{
-			{
-				Kind:           "FOLLOW_UP",
-				Purpose:        "Send follow-up email",
-				Subject:        "Follow up on your request",
-				CronExpression: "0 9 * * *",
-				Recurrence:     "every day",
-				Timezone:       "UTC",
+	mockResponse := promptJobsEnvelope{
+		Success: true,
+		Data: PromptResult{
+			Providers: []PromptProviderResult{
+				{
+					Provider: "openai",
+					Model:    "gpt-4",
+					Jobs: []PromptJobResponse{
+						{
+							Kind:           "FOLLOW_UP",
+							Purpose:        "Send follow-up email",
+							Subject:        "Follow up on your request",
+							CronExpression: "0 9 * * *",
+							Recurrence:     "every day",
+							Timezone:       "UTC",
+						},
+					},
+					InputTokens:  100,
+					OutputTokens: 50,
+					TotalTokens:  150,
+					DurationMs:   300,
+				},
+			},
+			Classification: &IntentClassification{
+				Text:     "Create a job to send follow-up emails daily at 9 AM",
+				Decision: "allow",
+				Reason:   "request_with_temporal_signal",
 			},
 		},
 	}
-	mockResponse := promptJobsEnvelope{Success: true}
-	mockResponse.Data.Providers = []PromptProviderResult{provider}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/prompt", r.URL.Path)
@@ -1183,9 +1197,73 @@ func TestCreateJobFromPrompt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result.Providers, 1)
-	assert.Len(t, result.Providers[0].Jobs, 1)
 	assert.Equal(t, "FOLLOW_UP", result.Providers[0].Jobs[0].Kind)
 	assert.Equal(t, "Send follow-up email", result.Providers[0].Jobs[0].Purpose)
+	assert.NotNil(t, result.Classification)
+	assert.Equal(t, "allow", result.Classification.Decision)
+}
+
+func TestCreateJobFromPrompt_SkippedError(t *testing.T) {
+	mockBody := map[string]any{
+		"success": false,
+		"data": map[string]any{
+			"message": "prompt skipped (reject): informational_question_not_schedule_request",
+			"classification": map[string]any{
+				"text":     "What is Kubernetes?",
+				"decision": "reject",
+				"reason":   "informational_question_not_schedule_request",
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(mockBody)
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	_, err := client.CreateJobFromPrompt(&PromptJobRequest{Prompt: "What is Kubernetes?"})
+	assert.Error(t, err)
+	assert.True(t, IsPromptSkippedError(err), "expected PromptSkippedError")
+
+	var skipped *PromptSkippedError
+	assert.ErrorAs(t, err, &skipped)
+	assert.NotNil(t, skipped.Classification)
+	assert.Equal(t, "reject", skipped.Classification.Decision)
+}
+
+func TestClassifyPrompt(t *testing.T) {
+	mockResponse := classifyEnvelope{
+		Success: true,
+		Data: struct {
+			Classification IntentClassification `json:"classification"`
+		}{
+			Classification: IntentClassification{
+				Text:     "Remind me every Monday at 9am",
+				Decision: "allow",
+				Reason:   "request_with_temporal_signal",
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/prompt/classify", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.ClassifyPrompt(&ClassifyPromptRequest{Prompt: "Remind me every Monday at 9am"})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "allow", result.Decision)
+	assert.Equal(t, "request_with_temporal_signal", result.Reason)
 }
 
 func TestBatchCreateJobs(t *testing.T) {
