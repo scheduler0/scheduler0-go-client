@@ -21,6 +21,11 @@ type AccountCreateRequestBody struct {
 	Name string `json:"name"`
 }
 
+// AccountUpdateRequestBody represents the request body for updating an account
+type AccountUpdateRequestBody struct {
+	Name string `json:"name"`
+}
+
 // AccountResponse represents the response for a single account
 type AccountResponse struct {
 	Success bool    `json:"success"`
