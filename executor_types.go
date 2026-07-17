@@ -2,26 +2,29 @@ package scheduler0_go_client
 
 // Executor represents a job executor
 type Executor struct {
-	ID               int64   `json:"id"`
-	AccountID        int64   `json:"accountId"`
-	Name             string  `json:"name"`
-	Type             string  `json:"type"`
-	Region           string  `json:"region"`
-	CloudProvider    string  `json:"cloudProvider"`
-	CloudResourceURL string  `json:"cloudResourceUrl"`
-	CloudAPIKey      string  `json:"cloudApiKey"`
-	CloudAPISecret   string  `json:"cloudApiSecret"`
-	WebhookURL       string  `json:"webhookUrl"`
-	WebhookSecret    string  `json:"webhookSecret"`
-	WebhookMethod    string  `json:"webhookMethod"`
-	Command          string  `json:"command,omitempty"`
-	WorkingDir       string  `json:"workingDir,omitempty"`
-	DateCreated      string  `json:"dateCreated"`
-	DateModified     *string `json:"dateModified"`
-	DateDeleted      *string `json:"dateDeleted"`
-	CreatedBy        string  `json:"createdBy"`
-	ModifiedBy       *string `json:"modifiedBy"`
-	DeletedBy        *string `json:"deletedBy"`
+	ID               int64  `json:"id"`
+	AccountID        int64  `json:"accountId"`
+	Name             string `json:"name"`
+	Type             string `json:"type"`
+	Region           string `json:"region"`
+	CloudProvider    string `json:"cloudProvider"`
+	CloudResourceURL string `json:"cloudResourceUrl"`
+	// CloudAPIKey, CloudAPISecret and WebhookSecret are secrets. The server stores them
+	// encrypted and only returns them once, in the CreateExecutor response. They are
+	// always empty on GetExecutor, ListExecutors and UpdateExecutor responses.
+	CloudAPIKey    string  `json:"cloudApiKey"`
+	CloudAPISecret string  `json:"cloudApiSecret"`
+	WebhookURL     string  `json:"webhookUrl"`
+	WebhookSecret  string  `json:"webhookSecret"`
+	WebhookMethod  string  `json:"webhookMethod"`
+	Command        string  `json:"command,omitempty"`
+	WorkingDir     string  `json:"workingDir,omitempty"`
+	DateCreated    string  `json:"dateCreated"`
+	DateModified   *string `json:"dateModified"`
+	DateDeleted    *string `json:"dateDeleted"`
+	CreatedBy      string  `json:"createdBy"`
+	ModifiedBy     *string `json:"modifiedBy"`
+	DeletedBy      *string `json:"deletedBy"`
 }
 
 // ExecutorResponse represents the response for a single executor
