@@ -19,7 +19,7 @@ type sendTimeSuggestionsEnvelope struct {
 // and coverage rules. The engine is deterministic and does not send the message
 // or create a job. An optional accountIDOverride sets the X-Account-ID header.
 func (c *Client) SendTimeSuggestions(body *SendTimeSuggestionsRequest, accountIDOverride ...string) (*SendTimeSuggestionsResult, error) {
-	req, err := c.newRequest("POST", "/send-time-suggestions", body, accountIDOverride...)
+	req, err := c.newRequest("POST", "/ai/send-time-suggestions", body, accountIDOverride...)
 	if err != nil {
 		return nil, err
 	}

@@ -1177,7 +1177,7 @@ func TestCreateJobFromPrompt(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/prompt", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/prompt", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
@@ -1250,7 +1250,7 @@ func TestClassifyPrompt(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/prompt/classify", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/prompt/classify", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
@@ -1268,7 +1268,7 @@ func TestClassifyPrompt(t *testing.T) {
 
 func TestAnalyzeSuggestions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/suggestions/analyze", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/suggestions/analyze", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
@@ -1304,7 +1304,7 @@ func TestAnalyzeSuggestions(t *testing.T) {
 
 func TestSendTimeSuggestions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/send-time-suggestions", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/send-time-suggestions", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{

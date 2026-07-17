@@ -22,7 +22,7 @@ type analyzeSuggestionsEnvelope struct {
 // English only: a non-en* locale in Options is rejected by the API with
 // UNSUPPORTED_LOCALE (400).
 func (c *Client) AnalyzeSuggestions(body *AnalyzeSuggestionsRequest, accountIDOverride ...string) (*AnalyzeSuggestionsResult, error) {
-	req, err := c.newRequest("POST", "/suggestions/analyze", body, accountIDOverride...)
+	req, err := c.newRequest("POST", "/ai/suggestions/analyze", body, accountIDOverride...)
 	if err != nil {
 		return nil, err
 	}
