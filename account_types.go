@@ -77,3 +77,51 @@ type AccountExecutionCountIncreaseResponse struct {
 		NewExecutionCount uint64 `json:"newExecutionCount"`
 	} `json:"data"`
 }
+
+// AccountClassifyRequestsCount represents the remaining monthly AI classify-request quota for an account
+type AccountClassifyRequestsCount struct {
+	ID            int64  `json:"id"`
+	AccountID     int64  `json:"accountId"`
+	RequestCount  int64  `json:"requestCount"`
+	DateCreated   string `json:"dateCreated"`
+	DateModified  string `json:"dateModified"`
+	NextResetDate string `json:"nextResetDate"`
+}
+
+// AccountClassifyCountResponse represents the response for account classify-request count
+type AccountClassifyCountResponse struct {
+	Success bool                         `json:"success"`
+	Data    AccountClassifyRequestsCount `json:"data"`
+}
+
+// AccountClassifyCountIncreaseResponse represents the response for increasing account classify-request count
+type AccountClassifyCountIncreaseResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		NewClassifyCount uint64 `json:"newClassifyCount"`
+	} `json:"data"`
+}
+
+// AccountPromptRequestsCount represents the remaining monthly AI prompt-request quota for an account
+type AccountPromptRequestsCount struct {
+	ID            int64  `json:"id"`
+	AccountID     int64  `json:"accountId"`
+	RequestCount  int64  `json:"requestCount"`
+	DateCreated   string `json:"dateCreated"`
+	DateModified  string `json:"dateModified"`
+	NextResetDate string `json:"nextResetDate"`
+}
+
+// AccountPromptCountResponse represents the response for account prompt-request count
+type AccountPromptCountResponse struct {
+	Success bool                       `json:"success"`
+	Data    AccountPromptRequestsCount `json:"data"`
+}
+
+// AccountPromptCountIncreaseResponse represents the response for increasing account prompt-request count
+type AccountPromptCountIncreaseResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		NewPromptCount uint64 `json:"newPromptCount"`
+	} `json:"data"`
+}
