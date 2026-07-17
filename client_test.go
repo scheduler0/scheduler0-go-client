@@ -1302,6 +1302,43 @@ func TestAnalyzeSuggestions(t *testing.T) {
 	assert.Len(t, result.Obligations, 1)
 }
 
+func TestSendTimeSuggestions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/send-time-suggestions", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"success": true,
+			"data": {
+				"request_id": "req_1",
+				"reference_time": "2026-07-17T17:45:00-04:00",
+				"policy": {"id":"default_send_time","version":"1.0.0"},
+				"engine": {"version":"1.0.0"},
+				"suggestions": [{"id":"sts_001","send_at":"2026-07-20T12:00:00-04:00","label":"Monday morning","score":0.94,"rank":1}],
+				"search": {"candidates_generated": 143, "candidates_scored": 16},
+				"warnings": []
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.SendTimeSuggestions(&SendTimeSuggestionsRequest{
+		Sender: &SendTimeParticipant{ID: "user_123", Timezone: "America/Toronto"},
+		Recipients: []SendTimeParticipant{
+			{ID: "user_456", Timezone: "America/Los_Angeles", Role: "primary"},
+		},
+		Message: &SendTimeMessage{Priority: "normal"},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "req_1", result.RequestID)
+	assert.Equal(t, "2026-07-17T17:45:00-04:00", result.ReferenceTime)
+	assert.Len(t, result.Suggestions, 1)
+	assert.Equal(t, "sts_001", result.Suggestions[0]["id"])
+}
+
 func TestBatchCreateJobs(t *testing.T) {
 	mockResponse := BatchJobResponse{
 		Success: true,

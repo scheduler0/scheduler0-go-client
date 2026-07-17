@@ -555,6 +555,26 @@ for _, s := range result.Suggestions {
 }
 ```
 
+### Recommending send times
+
+Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+
+```go
+result, err := client.SendTimeSuggestions(&scheduler0_go_client.SendTimeSuggestionsRequest{
+    Sender: &scheduler0_go_client.SendTimeParticipant{ID: "user_123", Timezone: "America/Toronto"},
+    Recipients: []scheduler0_go_client.SendTimeParticipant{
+        {ID: "user_456", Timezone: "America/Los_Angeles", Role: "primary"},
+    },
+    Message: &scheduler0_go_client.SendTimeMessage{Priority: "normal"},
+})
+if err != nil {
+    log.Fatal(err)
+}
+for _, s := range result.Suggestions {
+    fmt.Printf("%v (%v): %v\n", s["send_at"], s["score"], s["label"])
+}
+```
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -632,6 +652,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executions`
 - `/api/v1/prompt` (AI prompt endpoint)
 - `/api/v1/suggestions/analyze` (conversation suggestions endpoint)
+- `/api/v1/send-time-suggestions` (send-time suggestions endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
