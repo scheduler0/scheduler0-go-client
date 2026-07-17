@@ -8,11 +8,17 @@ type PromptJobRequest struct {
 	Recipients []string `json:"recipients,omitempty"`
 	Channels   []string `json:"channels,omitempty"`
 	Timezone   string   `json:"timezone,omitempty"`
+	// Locale is an optional BCP-47 locale (e.g. "en-US", "es-ES") forwarded to the
+	// AI model; empty falls back to "en".
+	Locale string `json:"locale,omitempty"`
 }
 
 // ClassifyPromptRequest is the request body for POST /prompt/classify.
 type ClassifyPromptRequest struct {
 	Prompt string `json:"prompt"`
+	// Locale is an optional BCP-47 locale. Only English (en*) is currently
+	// supported; other locales are rejected by the server with a 400.
+	Locale string `json:"locale,omitempty"`
 }
 
 // PromptJobResponse represents a single job configuration generated from AI prompt.
