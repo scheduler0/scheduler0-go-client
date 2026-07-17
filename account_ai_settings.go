@@ -28,3 +28,18 @@ func (c *Client) UpsertAccountAISettings(accountID string, settings *AccountAISe
 	}
 	return &result, nil
 }
+
+// GetAIModels retrieves the per-provider approved model catalog from GET /ai/models.
+// The catalog lists every model that Scheduler0 accepts for each provider.
+func (c *Client) GetAIModels() (*AIModelsResponse, error) {
+	req, err := c.newRequest("GET", "/ai/models", nil, "")
+	if err != nil {
+		return nil, err
+	}
+
+	var result AIModelsResponse
+	if err = c.do(req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
