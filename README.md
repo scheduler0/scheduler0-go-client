@@ -535,6 +535,26 @@ fmt.Printf("Reason:   %s\n", clf.Reason)
 ```
 ```
 
+### Analyzing a conversation for suggestions
+
+Analyze an ordered set of conversation messages to detect commitments, requests, deadlines, and follow-ups. The analysis is deterministic and **English only** (a non-`en*` locale returns `UNSUPPORTED_LOCALE`):
+
+```go
+result, err := client.AnalyzeSuggestions(&scheduler0_go_client.AnalyzeSuggestionsRequest{
+    ConversationID: "conv_123",
+    Messages: []scheduler0_go_client.SuggestionMessage{
+        {Speaker: "Victor", Timestamp: "2026-07-17T10:00:00-04:00", Message: "I'll send the proposal tomorrow."},
+    },
+    Options: &scheduler0_go_client.SuggestionOptions{Locale: "en", DefaultTimezone: "America/Toronto"},
+})
+if err != nil {
+    log.Fatal(err)
+}
+for _, s := range result.Suggestions {
+    fmt.Printf("%v: %v\n", s["type"], s["reason"])
+}
+```
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -611,6 +631,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
 - `/api/v1/prompt` (AI prompt endpoint)
+- `/api/v1/suggestions/analyze` (conversation suggestions endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 

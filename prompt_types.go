@@ -8,8 +8,9 @@ type PromptJobRequest struct {
 	Recipients []string `json:"recipients,omitempty"`
 	Channels   []string `json:"channels,omitempty"`
 	Timezone   string   `json:"timezone,omitempty"`
-	// Locale is an optional BCP-47 locale (e.g. "en-US", "es-ES") forwarded to the
-	// AI model; empty falls back to "en".
+
+	// Locale is an optional BCP 47 language tag (e.g. "en", "en-US"). The AI
+	// prompt flow is English-only; a non-en* locale bypasses the intent guardrail.
 	Locale string `json:"locale,omitempty"`
 }
 

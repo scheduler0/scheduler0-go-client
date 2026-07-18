@@ -1266,6 +1266,42 @@ func TestClassifyPrompt(t *testing.T) {
 	assert.Equal(t, "request_with_temporal_signal", result.Reason)
 }
 
+func TestAnalyzeSuggestions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/suggestions/analyze", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"success": true,
+			"data": {
+				"request_id": "req_1",
+				"conversation_id": "conv_123",
+				"suggestions": [{"id":"sug_001","type":"COMMITMENT","status":"OPEN","confidence":0.95}],
+				"obligations": [{"id":"obl_001","status":"OPEN","suggestion_id":"sug_001"}],
+				"warnings": [],
+				"engine": {"engine_version":"1.0.0"}
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.AnalyzeSuggestions(&AnalyzeSuggestionsRequest{
+		ConversationID: "conv_123",
+		Messages: []SuggestionMessage{
+			{Speaker: "Victor", Timestamp: "2026-07-17T10:00:00-04:00", Message: "I'll send the proposal tomorrow."},
+		},
+		Options: &SuggestionOptions{Locale: "en", DefaultTimezone: "America/Toronto"},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "conv_123", result.ConversationID)
+	assert.Len(t, result.Suggestions, 1)
+	assert.Equal(t, "COMMITMENT", result.Suggestions[0]["type"])
+	assert.Len(t, result.Obligations, 1)
+}
+
 func TestBatchCreateJobs(t *testing.T) {
 	mockResponse := BatchJobResponse{
 		Success: true,
