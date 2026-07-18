@@ -2,13 +2,17 @@ package scheduler0_go_client
 
 // Executor represents a job executor
 type Executor struct {
-	ID               int64  `json:"id"`
-	AccountID        int64  `json:"accountId"`
-	Name             string `json:"name"`
-	Type             string `json:"type"`
-	Region           string `json:"region"`
-	CloudProvider    string `json:"cloudProvider"`
-	CloudResourceURL string `json:"cloudResourceUrl"`
+	ID        int64  `json:"id"`
+	AccountID int64  `json:"accountId"`
+	Name      string `json:"name"`
+	// Description and Tags describe what the executor does. They are used by the
+	// /ai/schedule endpoint to match an executor to a prompt's purpose and channels.
+	Description      string   `json:"description,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	Type             string   `json:"type"`
+	Region           string   `json:"region"`
+	CloudProvider    string   `json:"cloudProvider"`
+	CloudResourceURL string   `json:"cloudResourceUrl"`
 	// CloudAPIKey, CloudAPISecret and WebhookSecret are secrets. The server stores them
 	// encrypted and only returns them once, in the CreateExecutor response. They are
 	// always empty on GetExecutor, ListExecutors and UpdateExecutor responses.
@@ -35,38 +39,42 @@ type ExecutorResponse struct {
 
 // ExecutorRequestBody represents the request body for creating an executor
 type ExecutorRequestBody struct {
-	AccountID        int64  `json:"-"`
-	Name             string `json:"name"`
-	Type             string `json:"type"`
-	Region           string `json:"region"`
-	CloudProvider    string `json:"cloudProvider"`
-	CloudResourceURL string `json:"cloudResourceUrl"`
-	CloudAPIKey      string `json:"cloudApiKey,omitempty"`
-	CloudAPISecret   string `json:"cloudApiSecret,omitempty"`
-	WebhookURL       string `json:"webhookUrl,omitempty"`
-	WebhookSecret    string `json:"webhookSecret,omitempty"`
-	WebhookMethod    string `json:"webhookMethod,omitempty"`
-	Command          string `json:"command,omitempty"`
-	WorkingDir       string `json:"workingDir,omitempty"`
-	CreatedBy        string `json:"createdBy"`
+	AccountID        int64    `json:"-"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	Type             string   `json:"type"`
+	Region           string   `json:"region"`
+	CloudProvider    string   `json:"cloudProvider"`
+	CloudResourceURL string   `json:"cloudResourceUrl"`
+	CloudAPIKey      string   `json:"cloudApiKey,omitempty"`
+	CloudAPISecret   string   `json:"cloudApiSecret,omitempty"`
+	WebhookURL       string   `json:"webhookUrl,omitempty"`
+	WebhookSecret    string   `json:"webhookSecret,omitempty"`
+	WebhookMethod    string   `json:"webhookMethod,omitempty"`
+	Command          string   `json:"command,omitempty"`
+	WorkingDir       string   `json:"workingDir,omitempty"`
+	CreatedBy        string   `json:"createdBy"`
 }
 
 // ExecutorUpdateRequestBody represents the request body for updating an executor
 type ExecutorUpdateRequestBody struct {
-	AccountID        int64  `json:"-"`
-	Name             string `json:"name"`
-	Type             string `json:"type"`
-	Region           string `json:"region"`
-	CloudProvider    string `json:"cloudProvider"`
-	CloudResourceURL string `json:"cloudResourceUrl"`
-	CloudAPIKey      string `json:"cloudApiKey,omitempty"`
-	CloudAPISecret   string `json:"cloudApiSecret,omitempty"`
-	WebhookURL       string `json:"webhookUrl,omitempty"`
-	WebhookSecret    string `json:"webhookSecret,omitempty"`
-	WebhookMethod    string `json:"webhookMethod,omitempty"`
-	Command          string `json:"command,omitempty"`
-	WorkingDir       string `json:"workingDir,omitempty"`
-	ModifiedBy       string `json:"modifiedBy"`
+	AccountID        int64    `json:"-"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	Type             string   `json:"type"`
+	Region           string   `json:"region"`
+	CloudProvider    string   `json:"cloudProvider"`
+	CloudResourceURL string   `json:"cloudResourceUrl"`
+	CloudAPIKey      string   `json:"cloudApiKey,omitempty"`
+	CloudAPISecret   string   `json:"cloudApiSecret,omitempty"`
+	WebhookURL       string   `json:"webhookUrl,omitempty"`
+	WebhookSecret    string   `json:"webhookSecret,omitempty"`
+	WebhookMethod    string   `json:"webhookMethod,omitempty"`
+	Command          string   `json:"command,omitempty"`
+	WorkingDir       string   `json:"workingDir,omitempty"`
+	ModifiedBy       string   `json:"modifiedBy"`
 }
 
 // ExecutorDeleteRequestBody represents the request body for deleting an executor

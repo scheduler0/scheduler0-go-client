@@ -575,6 +575,32 @@ for _, s := range result.Suggestions {
 }
 ```
 
+### Scheduling from a prompt
+
+Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `ExecutorID` / the account's only executor), and creates the jobs synchronously:
+
+```go
+result, err := client.ScheduleFromPrompt(&scheduler0_go_client.SchedulePromptRequest{
+    Prompt:    "Remind the sales team every Monday at 9am to review the pipeline",
+    Channels:  []string{"email"},
+    CreatedBy: "victor",
+    // Optional: pin a project or executor, otherwise they are resolved/created for you.
+    // Project:    &scheduler0_go_client.ScheduleProjectInput{Name: "Sales reminders"},
+    // ExecutorID: &executorID,
+})
+if err != nil {
+    if scheduler0_go_client.IsPromptSkippedError(err) {
+        log.Printf("prompt rejected by intent guardrail: %v", err)
+        return
+    }
+    log.Fatal(err)
+}
+fmt.Printf("project %d (created=%v), executor %d matched by %s, %d jobs created\n",
+    result.Project.ID, result.ProjectCreated, result.Executor.ID, result.ExecutorMatchedBy, len(result.Jobs))
+```
+
+Executor selection uses each executor's `Description` and `Tags` (set them on `CreateExecutor` / `UpdateExecutor`). When the account has more than one executor and no `ExecutorID` is pinned, the model picks the best match; if it cannot confidently match, the call fails with `409` (pin an `ExecutorID` or refine descriptions/tags).
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -653,6 +679,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/ai/prompt` (AI prompt endpoint)
 - `/api/v1/ai/suggestions/analyze` (conversation suggestions endpoint)
 - `/api/v1/ai/suggestions/time` (send-time suggestions endpoint)
+- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
