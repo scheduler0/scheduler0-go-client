@@ -79,7 +79,7 @@ func (c *Client) doPrompt(req *http.Request) (*PromptResult, error) {
 // intent classification. An optional accountIDOverride can be supplied to
 // set the X-Account-ID header.
 func (c *Client) CreateJobFromPrompt(body *PromptJobRequest, accountIDOverride ...string) (*PromptResult, error) {
-	req, err := c.newRequest("POST", "/prompt", body, accountIDOverride...)
+	req, err := c.newRequest("POST", "/ai/prompt", body, accountIDOverride...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (c *Client) CreateJobFromPrompt(body *PromptJobRequest, accountIDOverride .
 // is invoked and no credits are consumed. Returns an error when the classifier
 // is not configured on the server (503).
 func (c *Client) ClassifyPrompt(body *ClassifyPromptRequest, accountIDOverride ...string) (*IntentClassification, error) {
-	req, err := c.newRequest("POST", "/prompt/classify", body, accountIDOverride...)
+	req, err := c.newRequest("POST", "/ai/prompt/classify", body, accountIDOverride...)
 	if err != nil {
 		return nil, err
 	}
