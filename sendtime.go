@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// sendTimeSuggestionsEnvelope mirrors POST /send-time-suggestions 200 response:
+// sendTimeSuggestionsEnvelope mirrors POST /ai/suggestions/time 200 response:
 //
 //	{"success":true,"data":{...}}
 type sendTimeSuggestionsEnvelope struct {
@@ -19,7 +19,7 @@ type sendTimeSuggestionsEnvelope struct {
 // and coverage rules. The engine is deterministic and does not send the message
 // or create a job. An optional accountIDOverride sets the X-Account-ID header.
 func (c *Client) SendTimeSuggestions(body *SendTimeSuggestionsRequest, accountIDOverride ...string) (*SendTimeSuggestionsResult, error) {
-	req, err := c.newRequest("POST", "/ai/send-time-suggestions", body, accountIDOverride...)
+	req, err := c.newRequest("POST", "/ai/suggestions/time", body, accountIDOverride...)
 	if err != nil {
 		return nil, err
 	}

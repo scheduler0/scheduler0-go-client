@@ -652,7 +652,7 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executions`
 - `/api/v1/ai/prompt` (AI prompt endpoint)
 - `/api/v1/ai/suggestions/analyze` (conversation suggestions endpoint)
-- `/api/v1/ai/send-time-suggestions` (send-time suggestions endpoint)
+- `/api/v1/ai/suggestions/time` (send-time suggestions endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 

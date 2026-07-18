@@ -1,6 +1,6 @@
 package scheduler0_go_client
 
-// Send-time suggestion types for POST /send-time-suggestions. The engine is
+// Send-time suggestion types for POST /ai/suggestions/time. The engine is
 // deterministic scheduling/time-zone math (no LLM). All JSON keys are snake_case
 // to match the API contract.
 
@@ -102,7 +102,7 @@ type SendTimeAvailability struct {
 	BusyIntervals []SendTimeBusyInterval `json:"busy_intervals,omitempty"`
 }
 
-// SendTimeSuggestionsRequest is the request body for POST /send-time-suggestions.
+// SendTimeSuggestionsRequest is the request body for POST /ai/suggestions/time.
 type SendTimeSuggestionsRequest struct {
 	Sender        *SendTimeParticipant   `json:"sender,omitempty"`
 	Recipients    []SendTimeParticipant  `json:"recipients"`
