@@ -102,3 +102,47 @@ type ListExecutorsParams struct {
 	OrderBy          string // Field to order by (e.g., "date_created", "date_modified")
 	OrderByDirection string // Direction to order ("asc" or "desc")
 }
+
+// TestInvocationRequestBody is the (optional) body for TestInvokeExecutor. All
+// fields are optional; an empty body invokes the executor with a default
+// synthetic job.
+type TestInvocationRequestBody struct {
+	AccountID int64 `json:"-"`
+	// Job carries the standard job attributes to include in the invocation
+	// payload. Server-managed fields (id, accountId, executorId, dateCreated,
+	// lastExecutionDate) are ignored and overridden by the server.
+	Job *Job `json:"job,omitempty"`
+	// Age is how old the synthetic job entry should appear, as a Go duration
+	// string (e.g. "24h", "1h30m", "15m"). Sets the job's dateCreated and
+	// lastExecutionDate to now-age.
+	Age string `json:"age,omitempty"`
+	// ExecutionTime is the moment the job is treated as executing at (RFC3339).
+	// Becomes the payload's lastExecutionDateTime. Defaults to now.
+	ExecutionTime string `json:"executionTime,omitempty"`
+}
+
+// JobInvocationPayload is the payload delivered to an executor when a job fires.
+type JobInvocationPayload struct {
+	Job                   Job    `json:"job"`
+	LastExecutionDateTime string `json:"lastExecutionDateTime,omitempty"`
+	LastExecutionStatus   string `json:"lastExecutionStatus,omitempty"`
+}
+
+// TestInvocationResult reports the outcome of a test invocation.
+type TestInvocationResult struct {
+	Test         bool                 `json:"test"`
+	ExecutorID   int64                `json:"executorId"`
+	ExecutorType string               `json:"executorType"`
+	Success      bool                 `json:"success"`
+	Error        string               `json:"error,omitempty"`
+	StartedAt    string               `json:"startedAt"`
+	FinishedAt   string               `json:"finishedAt"`
+	DurationMs   int64                `json:"durationMs"`
+	Payload      JobInvocationPayload `json:"payload"`
+}
+
+// TestInvocationResponse represents the response for a test invocation.
+type TestInvocationResponse struct {
+	Success bool                 `json:"success"`
+	Data    TestInvocationResult `json:"data"`
+}

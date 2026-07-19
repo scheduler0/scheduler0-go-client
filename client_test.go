@@ -541,6 +541,52 @@ func TestDeleteExecutor(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTestInvokeExecutor(t *testing.T) {
+	mockResponse := TestInvocationResponse{
+		Success: true,
+		Data: TestInvocationResult{
+			Test:         true,
+			ExecutorID:   1,
+			ExecutorType: "webhook_url",
+			Success:      true,
+			DurationMs:   142,
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/executors/1/test-invoke", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	client := &Client{
+		BaseURL:    u,
+		HTTPClient: server.Client(),
+		APIKey:     "mock-api-key",
+		APISecret:  "mock-api-secret",
+		Version:    "v1",
+	}
+
+	body := &TestInvocationRequestBody{
+		Job: &Job{
+			Spec:     "0 2 * * *",
+			Data:     "{\"action\":\"process_data\"}",
+			Timezone: "UTC",
+			RetryMax: 2,
+		},
+		Age: "24h",
+	}
+
+	result, err := client.TestInvokeExecutor("1", body)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.True(t, result.Data.Success)
+	assert.Equal(t, "webhook_url", result.Data.ExecutorType)
+}
+
 func TestListProjects(t *testing.T) {
 	mockResponse := PaginatedProjectsResponse{
 		Success: true,

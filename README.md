@@ -319,6 +319,22 @@ result, err := client.UpdateExecutor("executor-id", update)
 
 // Delete an executor
 err := client.DeleteExecutor("executor-id")
+
+// Test-invoke an executor with a synthetic job — fires immediately, no waiting
+// for the cron spec/start date, and no side effects (nothing is persisted or
+// rescheduled). The body is optional; pass nil to use a default synthetic job.
+testResult, err := client.TestInvokeExecutor("executor-id", &scheduler0_go_client.TestInvocationRequestBody{
+    Job: &scheduler0_go_client.Job{
+        Spec:     "0 2 * * *",
+        Data:     "{\"action\":\"process_data\"}",
+        Timezone: "UTC",
+        RetryMax: 2,
+    },
+    Age:           "24h",                  // how old the synthetic entry should appear
+    ExecutionTime: "2024-01-15T02:00:00Z", // optional; defaults to now
+})
+// HTTP 200 even when the target fails; check testResult.Data.Success.
+fmt.Println("invocation succeeded:", testResult.Data.Success)
 ```
 
 ### Managing Local Executors
