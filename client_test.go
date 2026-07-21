@@ -541,6 +541,52 @@ func TestDeleteExecutor(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTestInvokeExecutor(t *testing.T) {
+	mockResponse := TestInvocationResponse{
+		Success: true,
+		Data: TestInvocationResult{
+			Test:         true,
+			ExecutorID:   1,
+			ExecutorType: "webhook_url",
+			Success:      true,
+			DurationMs:   142,
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/executors/1/test-invoke", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	client := &Client{
+		BaseURL:    u,
+		HTTPClient: server.Client(),
+		APIKey:     "mock-api-key",
+		APISecret:  "mock-api-secret",
+		Version:    "v1",
+	}
+
+	body := &TestInvocationRequestBody{
+		Job: &Job{
+			Spec:     "0 2 * * *",
+			Data:     "{\"action\":\"process_data\"}",
+			Timezone: "UTC",
+			RetryMax: 2,
+		},
+		Age: "24h",
+	}
+
+	result, err := client.TestInvokeExecutor("1", body)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.True(t, result.Data.Success)
+	assert.Equal(t, "webhook_url", result.Data.ExecutorType)
+}
+
 func TestListProjects(t *testing.T) {
 	mockResponse := PaginatedProjectsResponse{
 		Success: true,
@@ -1177,7 +1223,7 @@ func TestCreateJobFromPrompt(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/prompt", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/prompt", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
@@ -1250,7 +1296,7 @@ func TestClassifyPrompt(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/prompt/classify", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/prompt/classify", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
@@ -1268,7 +1314,7 @@ func TestClassifyPrompt(t *testing.T) {
 
 func TestAnalyzeSuggestions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/suggestions/analyze", r.URL.Path)
+		assert.Equal(t, "/api/v1/ai/suggestions/analyze", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
@@ -1300,6 +1346,108 @@ func TestAnalyzeSuggestions(t *testing.T) {
 	assert.Len(t, result.Suggestions, 1)
 	assert.Equal(t, "COMMITMENT", result.Suggestions[0]["type"])
 	assert.Len(t, result.Obligations, 1)
+}
+
+func TestSendTimeSuggestions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/suggestions/time", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"success": true,
+			"data": {
+				"request_id": "req_1",
+				"reference_time": "2026-07-17T17:45:00-04:00",
+				"policy": {"id":"default_send_time","version":"1.0.0"},
+				"engine": {"version":"1.0.0"},
+				"suggestions": [{"id":"sts_001","send_at":"2026-07-20T12:00:00-04:00","label":"Monday morning","score":0.94,"rank":1}],
+				"search": {"candidates_generated": 143, "candidates_scored": 16},
+				"warnings": []
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.SendTimeSuggestions(&SendTimeSuggestionsRequest{
+		Sender: &SendTimeParticipant{ID: "user_123", Timezone: "America/Toronto"},
+		Recipients: []SendTimeParticipant{
+			{ID: "user_456", Timezone: "America/Los_Angeles", Role: "primary"},
+		},
+		Message: &SendTimeMessage{Priority: "normal"},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "req_1", result.RequestID)
+	assert.Equal(t, "2026-07-17T17:45:00-04:00", result.ReferenceTime)
+	assert.Len(t, result.Suggestions, 1)
+	assert.Equal(t, "sts_001", result.Suggestions[0]["id"])
+}
+
+func TestScheduleFromPrompt(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/schedule", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{
+			"success": true,
+			"data": {
+				"classification": {"text":"remind the team every monday","decision":"allow","reason":"request_with_temporal_signal"},
+				"project": {"id": 7, "name": "Team reminders", "description": "auto"},
+				"projectCreated": true,
+				"executor": {"id": 3, "name": "Email sender", "description": "sends email", "tags": ["email"]},
+				"executorMatchedBy": "llm",
+				"executorMatchReason": "matches email channel",
+				"jobs": [{"id": 11, "projectId": 7, "executorId": 3, "spec": "0 9 * * 1", "timezone": "UTC", "status": "active"}],
+				"provider": "openai",
+				"model": "gpt-4"
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.ScheduleFromPrompt(&SchedulePromptRequest{
+		Prompt:    "Remind the team every Monday at 9am",
+		Channels:  []string{"email"},
+		CreatedBy: "victor",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, int64(7), result.Project.ID)
+	assert.True(t, result.ProjectCreated)
+	assert.Equal(t, int64(3), result.Executor.ID)
+	assert.Equal(t, "llm", result.ExecutorMatchedBy)
+	assert.Len(t, result.Jobs, 1)
+	assert.Equal(t, int64(11), result.Jobs[0].ID)
+	assert.NotNil(t, result.Classification)
+	assert.Equal(t, "allow", result.Classification.Decision)
+}
+
+func TestScheduleFromPrompt_SkippedError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/schedule", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{
+			"success": false,
+			"data": {
+				"message": "prompt skipped (reject): informational_question_not_schedule_request",
+				"classification": {"text":"what is kubernetes?","decision":"reject","reason":"informational_question_not_schedule_request"}
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	_, err := client.ScheduleFromPrompt(&SchedulePromptRequest{Prompt: "What is Kubernetes?", CreatedBy: "victor"})
+	assert.Error(t, err)
+	assert.True(t, IsPromptSkippedError(err), "expected PromptSkippedError")
 }
 
 func TestBatchCreateJobs(t *testing.T) {

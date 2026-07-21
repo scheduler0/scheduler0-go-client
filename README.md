@@ -319,6 +319,22 @@ result, err := client.UpdateExecutor("executor-id", update)
 
 // Delete an executor
 err := client.DeleteExecutor("executor-id")
+
+// Test-invoke an executor with a synthetic job — fires immediately, no waiting
+// for the cron spec/start date, and no side effects (nothing is persisted or
+// rescheduled). The body is optional; pass nil to use a default synthetic job.
+testResult, err := client.TestInvokeExecutor("executor-id", &scheduler0_go_client.TestInvocationRequestBody{
+    Job: &scheduler0_go_client.Job{
+        Spec:     "0 2 * * *",
+        Data:     "{\"action\":\"process_data\"}",
+        Timezone: "UTC",
+        RetryMax: 2,
+    },
+    Age:           "24h",                  // how old the synthetic entry should appear
+    ExecutionTime: "2024-01-15T02:00:00Z", // optional; defaults to now
+})
+// HTTP 200 even when the target fails; check testResult.Data.Success.
+fmt.Println("invocation succeeded:", testResult.Data.Success)
 ```
 
 ### Managing Local Executors
@@ -555,6 +571,52 @@ for _, s := range result.Suggestions {
 }
 ```
 
+### Recommending send times
+
+Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+
+```go
+result, err := client.SendTimeSuggestions(&scheduler0_go_client.SendTimeSuggestionsRequest{
+    Sender: &scheduler0_go_client.SendTimeParticipant{ID: "user_123", Timezone: "America/Toronto"},
+    Recipients: []scheduler0_go_client.SendTimeParticipant{
+        {ID: "user_456", Timezone: "America/Los_Angeles", Role: "primary"},
+    },
+    Message: &scheduler0_go_client.SendTimeMessage{Priority: "normal"},
+})
+if err != nil {
+    log.Fatal(err)
+}
+for _, s := range result.Suggestions {
+    fmt.Printf("%v (%v): %v\n", s["send_at"], s["score"], s["label"])
+}
+```
+
+### Scheduling from a prompt
+
+Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `ExecutorID` / the account's only executor), and creates the jobs synchronously:
+
+```go
+result, err := client.ScheduleFromPrompt(&scheduler0_go_client.SchedulePromptRequest{
+    Prompt:    "Remind the sales team every Monday at 9am to review the pipeline",
+    Channels:  []string{"email"},
+    CreatedBy: "victor",
+    // Optional: pin a project or executor, otherwise they are resolved/created for you.
+    // Project:    &scheduler0_go_client.ScheduleProjectInput{Name: "Sales reminders"},
+    // ExecutorID: &executorID,
+})
+if err != nil {
+    if scheduler0_go_client.IsPromptSkippedError(err) {
+        log.Printf("prompt rejected by intent guardrail: %v", err)
+        return
+    }
+    log.Fatal(err)
+}
+fmt.Printf("project %d (created=%v), executor %d matched by %s, %d jobs created\n",
+    result.Project.ID, result.ProjectCreated, result.Executor.ID, result.ExecutorMatchedBy, len(result.Jobs))
+```
+
+Executor selection uses each executor's `Description` and `Tags` (set them on `CreateExecutor` / `UpdateExecutor`). When the account has more than one executor and no `ExecutorID` is pinned, the model picks the best match; if it cannot confidently match, the call fails with `409` (pin an `ExecutorID` or refine descriptions/tags).
+
 **Note**: The AI prompt endpoint requires:
 - Valid API credentials (API Key + Secret)
 - Account ID header
@@ -630,8 +692,10 @@ Most endpoints require the `X-Account-ID` header. The following endpoints requir
 - `/api/v1/executors/*`
 - `/api/v1/async-tasks/*`
 - `/api/v1/executions`
-- `/api/v1/prompt` (AI prompt endpoint)
-- `/api/v1/suggestions/analyze` (conversation suggestions endpoint)
+- `/api/v1/ai/prompt` (AI prompt endpoint)
+- `/api/v1/ai/suggestions/analyze` (conversation suggestions endpoint)
+- `/api/v1/ai/suggestions/time` (send-time suggestions endpoint)
+- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
 
 Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
 
@@ -652,7 +716,7 @@ For other methods, the Account ID can be set in the request body's `AccountID` f
 
 ## Credits and AI Features
 
-The AI prompt endpoint (`/api/v1/prompt`) requires:
+The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
 - **Credits**: 1 credit per prompt execution
 - **Authentication**: Valid API Key + Secret credentials
 - **Account ID**: Required header for credit deduction

@@ -82,7 +82,7 @@ func (c *Client) ListPromptRequests(params ListPromptRequestsParams) (*PromptReq
 		accountIDOverride = fmt.Sprintf("%d", params.AccountID)
 	}
 
-	req, err := c.newRequestWithQuery("GET", "/prompt-requests", nil, queryParams, accountIDOverride)
+	req, err := c.newRequestWithQuery("GET", "/ai/prompt-requests", nil, queryParams, accountIDOverride)
 	if err != nil {
 		return nil, err
 	}
