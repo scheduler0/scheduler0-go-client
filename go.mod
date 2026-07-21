@@ -1,4 +1,4 @@
-module github.com/scheduler0/scheduler0-go-client
+module github.com/scheduler0/scheduler0-go-client/v2
 
 go 1.26.5
 
