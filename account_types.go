@@ -78,11 +78,16 @@ type AccountExecutionCountIncreaseResponse struct {
 	} `json:"data"`
 }
 
-// AccountClassifyRequestsCount represents the remaining monthly AI classify-request quota for an account
+// AccountClassifyRequestsCount represents the remaining monthly AI classify-request quota for
+// an account. RequestCount is the number of remaining classify credits for the current period
+// (these are monthly AI request credits, not platform job-execution tokens). MonthlyLimit is
+// the authoritative allowance for the account's current features; RequestCount may exceed it
+// after a paid top-up, in which case the surplus is bonus credit.
 type AccountClassifyRequestsCount struct {
 	ID            int64  `json:"id"`
 	AccountID     int64  `json:"accountId"`
 	RequestCount  int64  `json:"requestCount"`
+	MonthlyLimit  int64  `json:"monthlyLimit"`
 	DateCreated   string `json:"dateCreated"`
 	DateModified  string `json:"dateModified"`
 	NextResetDate string `json:"nextResetDate"`
@@ -102,11 +107,16 @@ type AccountClassifyCountIncreaseResponse struct {
 	} `json:"data"`
 }
 
-// AccountPromptRequestsCount represents the remaining monthly AI prompt-request quota for an account
+// AccountPromptRequestsCount represents the remaining monthly AI prompt-request quota for an
+// account. RequestCount is the number of remaining prompt credits for the current period
+// (these are monthly AI request credits, not platform job-execution tokens). MonthlyLimit is
+// the authoritative allowance for the account's current features; RequestCount may exceed it
+// after a paid top-up, in which case the surplus is bonus credit.
 type AccountPromptRequestsCount struct {
 	ID            int64  `json:"id"`
 	AccountID     int64  `json:"accountId"`
 	RequestCount  int64  `json:"requestCount"`
+	MonthlyLimit  int64  `json:"monthlyLimit"`
 	DateCreated   string `json:"dateCreated"`
 	DateModified  string `json:"dateModified"`
 	NextResetDate string `json:"nextResetDate"`
