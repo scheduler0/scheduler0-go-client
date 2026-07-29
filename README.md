@@ -188,13 +188,10 @@ err := client.RemoveFeatureFromAccount("account-id", feature)
 count, err := client.GetAccountExecutionCount("account-id")
 increased, err := client.IncreaseAccountExecutionCount("account-id", 10000)
 
-// Get / increase the account's monthly AI prompt-request quota
-promptCount, err := client.GetAccountPromptCount("account-id")
-increasedPrompts, err := client.IncreaseAccountPromptCount("account-id", 100)
-
-// Get / increase the account's monthly AI classify-request quota
-classifyCount, err := client.GetAccountClassifyCount("account-id")
-increasedClassify, err := client.IncreaseAccountClassifyCount("account-id", 100)
+// Get the account's log-derived AI request usage (prompt + classify) for the current period.
+// Returns per-dimension limit/used/remaining plus the period boundary; limits are
+// feature-derived and usage is counted from the request logs (success-only).
+usage, err := client.GetAIUsage("account-id")
 
 // Get / add platform tokens
 tokens, err := client.GetAccountTokens("account-id")

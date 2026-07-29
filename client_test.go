@@ -1882,29 +1882,22 @@ func TestReportLocalExecutions(t *testing.T) {
 	assert.Equal(t, 2, result.Data.Committed)
 }
 
-// TestAccountPromptCountResponse_DecodesMonthlyLimit verifies the client decodes the
-// authoritative monthlyLimit field alongside the remaining requestCount, and that a
-// requestCount above monthlyLimit (a bonus/top-up balance) round-trips intact.
-func TestAccountPromptCountResponse_DecodesMonthlyLimit(t *testing.T) {
-	payload := `{"success":true,"data":{"id":7,"accountId":123,"requestCount":100500,"monthlyLimit":100000,"dateCreated":"2025-01-01T00:00:00Z","dateModified":"2025-01-01T00:00:00Z","nextResetDate":"2025-02-01T00:00:00Z"}}`
+// TestAIUsageResponse_DecodesUsage verifies the client decodes the log-derived AI usage
+// payload: per-dimension limit/used/remaining plus the period boundary.
+func TestAIUsageResponse_DecodesUsage(t *testing.T) {
+	payload := `{"success":true,"data":{"accountId":123,"periodStart":"2025-01-01T00:00:00Z","nextResetDate":"2025-02-01T00:00:00Z","prompt":{"limit":100000,"used":42,"remaining":99958},"classify":{"limit":1000,"used":250,"remaining":750}}}`
 
-	var resp AccountPromptCountResponse
+	var resp AIUsageResponse
 	assert.NoError(t, json.Unmarshal([]byte(payload), &resp))
 	assert.True(t, resp.Success)
-	assert.Equal(t, int64(100500), resp.Data.RequestCount)
-	assert.Equal(t, int64(100000), resp.Data.MonthlyLimit)
-}
-
-// TestAccountClassifyCountResponse_DecodesMonthlyLimit mirrors the prompt decode test for the
-// classify quota payload.
-func TestAccountClassifyCountResponse_DecodesMonthlyLimit(t *testing.T) {
-	payload := `{"success":true,"data":{"id":8,"accountId":123,"requestCount":250,"monthlyLimit":1000,"dateCreated":"2025-01-01T00:00:00Z","dateModified":"2025-01-01T00:00:00Z","nextResetDate":"2025-02-01T00:00:00Z"}}`
-
-	var resp AccountClassifyCountResponse
-	assert.NoError(t, json.Unmarshal([]byte(payload), &resp))
-	assert.True(t, resp.Success)
-	assert.Equal(t, int64(250), resp.Data.RequestCount)
-	assert.Equal(t, int64(1000), resp.Data.MonthlyLimit)
+	assert.Equal(t, int64(123), resp.Data.AccountID)
+	assert.Equal(t, "2025-02-01T00:00:00Z", resp.Data.NextResetDate)
+	assert.Equal(t, int64(100000), resp.Data.Prompt.Limit)
+	assert.Equal(t, int64(42), resp.Data.Prompt.Used)
+	assert.Equal(t, int64(99958), resp.Data.Prompt.Remaining)
+	assert.Equal(t, int64(1000), resp.Data.Classify.Limit)
+	assert.Equal(t, int64(250), resp.Data.Classify.Used)
+	assert.Equal(t, int64(750), resp.Data.Classify.Remaining)
 }
 
 // TestListPromptRequests_SendsLimit verifies that a non-zero limit is forwarded verbatim.
