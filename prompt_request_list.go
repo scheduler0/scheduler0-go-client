@@ -52,8 +52,12 @@ type PromptRequestsResponse struct {
 // ListPromptRequests retrieves the account's AI prompt-request log with filters/pagination.
 func (c *Client) ListPromptRequests(params ListPromptRequestsParams) (*PromptRequestsResponse, error) {
 	queryParams := map[string]string{
-		"limit":  fmt.Sprintf("%d", params.Limit),
 		"offset": fmt.Sprintf("%d", params.Offset),
+	}
+	// Omit a zero limit so the server applies its authoritative default page size (and its
+	// maximum cap) rather than being asked for an explicit zero-length page.
+	if params.Limit > 0 {
+		queryParams["limit"] = fmt.Sprintf("%d", params.Limit)
 	}
 	if params.Provider != "" {
 		queryParams["provider"] = params.Provider

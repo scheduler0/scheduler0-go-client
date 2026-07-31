@@ -78,50 +78,27 @@ type AccountExecutionCountIncreaseResponse struct {
 	} `json:"data"`
 }
 
-// AccountClassifyRequestsCount represents the remaining monthly AI classify-request quota for an account
-type AccountClassifyRequestsCount struct {
-	ID            int64  `json:"id"`
-	AccountID     int64  `json:"accountId"`
-	RequestCount  int64  `json:"requestCount"`
-	DateCreated   string `json:"dateCreated"`
-	DateModified  string `json:"dateModified"`
-	NextResetDate string `json:"nextResetDate"`
+// AIUsageDimension reports one AI quota dimension (prompt or classify) for an account: the
+// feature-derived monthly Limit, the number of successful requests Used in the current period,
+// and the Remaining allowance. Usage is log-derived on the backend (counted from the request
+// logs since the period start), so these are the authoritative values to render.
+type AIUsageDimension struct {
+	Limit     int64 `json:"limit"`
+	Used      int64 `json:"used"`
+	Remaining int64 `json:"remaining"`
 }
 
-// AccountClassifyCountResponse represents the response for account classify-request count
-type AccountClassifyCountResponse struct {
-	Success bool                         `json:"success"`
-	Data    AccountClassifyRequestsCount `json:"data"`
+// AIUsage is the log-derived view of an account's AI request usage for the current period.
+type AIUsage struct {
+	AccountID     int64            `json:"accountId"`
+	PeriodStart   string           `json:"periodStart"`
+	NextResetDate string           `json:"nextResetDate"`
+	Prompt        AIUsageDimension `json:"prompt"`
+	Classify      AIUsageDimension `json:"classify"`
 }
 
-// AccountClassifyCountIncreaseResponse represents the response for increasing account classify-request count
-type AccountClassifyCountIncreaseResponse struct {
-	Success bool `json:"success"`
-	Data    struct {
-		NewClassifyCount uint64 `json:"newClassifyCount"`
-	} `json:"data"`
-}
-
-// AccountPromptRequestsCount represents the remaining monthly AI prompt-request quota for an account
-type AccountPromptRequestsCount struct {
-	ID            int64  `json:"id"`
-	AccountID     int64  `json:"accountId"`
-	RequestCount  int64  `json:"requestCount"`
-	DateCreated   string `json:"dateCreated"`
-	DateModified  string `json:"dateModified"`
-	NextResetDate string `json:"nextResetDate"`
-}
-
-// AccountPromptCountResponse represents the response for account prompt-request count
-type AccountPromptCountResponse struct {
-	Success bool                       `json:"success"`
-	Data    AccountPromptRequestsCount `json:"data"`
-}
-
-// AccountPromptCountIncreaseResponse represents the response for increasing account prompt-request count
-type AccountPromptCountIncreaseResponse struct {
-	Success bool `json:"success"`
-	Data    struct {
-		NewPromptCount uint64 `json:"newPromptCount"`
-	} `json:"data"`
+// AIUsageResponse represents the response for account AI usage.
+type AIUsageResponse struct {
+	Success bool    `json:"success"`
+	Data    AIUsage `json:"data"`
 }

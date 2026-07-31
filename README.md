@@ -11,8 +11,10 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
 - **Account Management**
   - Create accounts
   - Get account details
+  - Update account details
   - Add/remove features from accounts
   - Get/increase the monthly execution count
+  - Get/increase the monthly AI prompt- and classify-request quotas
   - Get/add platform tokens
   - Configure per-account AI provider settings (BYOK)
 
@@ -70,6 +72,11 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
   - Create job configurations from natural language prompts
   - AI generates cron expressions, scheduling, and job metadata
   - Supports purposes, events, recipients, and channels
+  - Classify prompts with the intent guardrail (no credits consumed)
+  - Schedule jobs directly from a prompt in one call
+  - Analyze conversations for commitments and follow-up suggestions
+  - Recommend optimal send times across time zones
+  - List approved AI models and inspect the prompt-request log
 
 - **Async Tasks Management**
   - Get async task status by request ID
@@ -84,7 +91,13 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
 ## Installation
 
 ```bash
-go get github.com/scheduler0/scheduler0-go-client
+go get github.com/scheduler0/scheduler0-go-client/v2
+```
+
+Then import it (the package name is `scheduler0_go_client`):
+
+```go
+import scheduler0_go_client "github.com/scheduler0/scheduler0-go-client/v2"
 ```
 
 ## API Documentation
@@ -105,6 +118,17 @@ client, err := scheduler0_go_client.NewAPIClientWithAccount(
     "your-api-key",           // API Key
     "your-api-secret",        // API Secret
     "123",                    // Account ID
+)
+```
+
+If you don't need a default Account ID (e.g. for account-level endpoints), use `NewAPIClient`:
+
+```go
+client, err := scheduler0_go_client.NewAPIClient(
+    "http://localhost:7070",  // Base URL
+    "v1",                     // API Version
+    "your-api-key",           // API Key
+    "your-api-secret",        // API Secret
 )
 ```
 
@@ -146,6 +170,11 @@ result, err := client.CreateAccount(account)
 // Get account details
 account, err := client.GetAccount("account-id")
 
+// Update an account's name
+updated, err := client.UpdateAccount("account-id", &scheduler0_go_client.AccountUpdateRequestBody{
+    Name: "Renamed Account",
+})
+
 // Add feature to account
 feature := &scheduler0_go_client.FeatureRequest{
     FeatureID: 1,
@@ -158,6 +187,11 @@ err := client.RemoveFeatureFromAccount("account-id", feature)
 // Get / increase the account's monthly execution count
 count, err := client.GetAccountExecutionCount("account-id")
 increased, err := client.IncreaseAccountExecutionCount("account-id", 10000)
+
+// Get the account's log-derived AI request usage (prompt + classify) for the current period.
+// Returns per-dimension limit/used/remaining plus the period boundary; limits are
+// feature-derived and usage is counted from the request logs (success-only).
+usage, err := client.GetAIUsage("account-id")
 
 // Get / add platform tokens
 tokens, err := client.GetAccountTokens("account-id")
@@ -180,6 +214,9 @@ saved, err := client.UpsertAccountAISettings("account-id", &scheduler0_go_client
     Model:           "claude-sonnet-4-5", // optional; provider default used when empty
     AnthropicAPIKey: "sk-ant-...",
 })
+
+// List the approved models per provider (openai, anthropic, bedrock, openrouter)
+models, err := client.GetAIModels()
 ```
 
 ### Managing Features
@@ -219,10 +256,14 @@ credential, err := client.CreateCredential(&scheduler0_go_client.CredentialCreat
 credential, err := client.GetCredential("credential-id")
 
 // Update a credential
-credential, err := client.UpdateCredential("credential-id")
+credential, err := client.UpdateCredential("credential-id", &scheduler0_go_client.CredentialUpdateRequestBody{
+    ModifiedBy: "user@example.com",
+})
 
 // Delete a credential
-err := client.DeleteCredential("credential-id")
+err := client.DeleteCredential("credential-id", &scheduler0_go_client.CredentialDeleteRequestBody{
+    DeletedBy: "user@example.com",
+})
 
 // Archive a credential (disables it without deleting)
 err := client.ArchiveCredential("credential-id", "user@example.com")
@@ -311,14 +352,16 @@ result, err := client.CreateExecutor(executor)
 executor, err := client.GetExecutor("executor-id")
 
 // Update an executor
-update := &scheduler0_go_client.ExecutorRequestBody{
+update := &scheduler0_go_client.ExecutorUpdateRequestBody{
     Name: "updated-executor",
     // ... other fields
 }
 result, err := client.UpdateExecutor("executor-id", update)
 
 // Delete an executor
-err := client.DeleteExecutor("executor-id")
+err := client.DeleteExecutor("executor-id", &scheduler0_go_client.ExecutorDeleteRequestBody{
+    DeletedBy: "user@example.com",
+})
 
 // Test-invoke an executor with a synthetic job — fires immediately, no waiting
 // for the cron spec/start date, and no side effects (nothing is persisted or
@@ -386,17 +429,20 @@ project := &scheduler0_go_client.ProjectRequestBody{
 }
 result, err := client.CreateProject(project)
 
-// Get a specific project
-project, err := client.GetProject("project-id")
+// Get a specific project (projects are addressed by int64 ID)
+project, err := client.GetProject(int64(123))
 
 // Update a project
 update := &scheduler0_go_client.ProjectUpdateRequestBody{
     Description: "Updated description",
+    ModifiedBy:  "user@example.com",
 }
-result, err := client.UpdateProject("project-id", update)
+result, err := client.UpdateProject(int64(123), update)
 
 // Delete a project
-err := client.DeleteProject("project-id")
+err := client.DeleteProject(int64(123), &scheduler0_go_client.ProjectDeleteRequestBody{
+    DeletedBy: "user@example.com",
+})
 ```
 
 ### Managing Jobs
@@ -459,7 +505,9 @@ update := &scheduler0_go_client.JobUpdateRequestBody{
 result, err := client.UpdateJob("job-id", update)
 
 // Delete a job
-err := client.DeleteJob("job-id")
+err := client.DeleteJob("job-id", &scheduler0_go_client.JobDeleteRequestBody{
+    DeletedBy: "user@example.com",
+})
 ```
 
 ### AI-Powered Job Creation
@@ -549,7 +597,6 @@ if err != nil {
 fmt.Printf("Decision: %s\n", clf.Decision) // reject
 fmt.Printf("Reason:   %s\n", clf.Reason)
 ```
-```
 
 ### Analyzing a conversation for suggestions
 
@@ -623,6 +670,26 @@ Executor selection uses each executor's `Description` and `Tags` (set them on `C
 - Sufficient credits (1 credit per prompt execution)
 
 The `Timezone` field is optional. When omitted, the AI assumes `UTC`. When set to an IANA name (e.g. `"America/New_York"`), the AI interprets relative phrases like *"9am tomorrow"* in that timezone and emits `nextRunAt` / `startDate` / `endDate` with the matching numeric offset. Invalid timezone strings are rejected by the API with `400 Bad Request`.
+
+### Inspecting the AI prompt-request log
+
+List the account's persisted AI prompt executions with filtering and pagination:
+
+```go
+promptLog, err := client.ListPromptRequests(scheduler0_go_client.ListPromptRequestsParams{
+    Provider: "anthropic",   // Optional: filter by provider
+    Status:   "success",     // Optional: filter by status
+    Order:    "DESC",        // Optional: "ASC" or "DESC"
+    Limit:    20,
+    Offset:   0,
+})
+if err != nil {
+    log.Fatal(err)
+}
+for _, r := range promptLog.Data.Requests {
+    fmt.Printf("%s: %s (%d tokens)\n", r.Status, r.Provider, r.TotalTokens)
+}
+```
 
 ### Managing Async Tasks
 

@@ -1881,3 +1881,58 @@ func TestReportLocalExecutions(t *testing.T) {
 	assert.True(t, result.Success)
 	assert.Equal(t, 2, result.Data.Committed)
 }
+
+// TestAIUsageResponse_DecodesUsage verifies the client decodes the log-derived AI usage
+// payload: per-dimension limit/used/remaining plus the period boundary.
+func TestAIUsageResponse_DecodesUsage(t *testing.T) {
+	payload := `{"success":true,"data":{"accountId":123,"periodStart":"2025-01-01T00:00:00Z","nextResetDate":"2025-02-01T00:00:00Z","prompt":{"limit":100000,"used":42,"remaining":99958},"classify":{"limit":1000,"used":250,"remaining":750}}}`
+
+	var resp AIUsageResponse
+	assert.NoError(t, json.Unmarshal([]byte(payload), &resp))
+	assert.True(t, resp.Success)
+	assert.Equal(t, int64(123), resp.Data.AccountID)
+	assert.Equal(t, "2025-02-01T00:00:00Z", resp.Data.NextResetDate)
+	assert.Equal(t, int64(100000), resp.Data.Prompt.Limit)
+	assert.Equal(t, int64(42), resp.Data.Prompt.Used)
+	assert.Equal(t, int64(99958), resp.Data.Prompt.Remaining)
+	assert.Equal(t, int64(1000), resp.Data.Classify.Limit)
+	assert.Equal(t, int64(250), resp.Data.Classify.Used)
+	assert.Equal(t, int64(750), resp.Data.Classify.Remaining)
+}
+
+// TestListPromptRequests_SendsLimit verifies that a non-zero limit is forwarded verbatim.
+func TestListPromptRequests_SendsLimit(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/prompt-requests", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "50", r.URL.Query().Get("limit"))
+		assert.Equal(t, "10", r.URL.Query().Get("offset"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(PromptRequestsResponse{Success: true, Data: PromptRequestsData{Limit: 50, Offset: 10}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.ListPromptRequests(ListPromptRequestsParams{Limit: 50, Offset: 10})
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+// TestListPromptRequests_OmitsZeroLimit verifies that a zero limit is omitted from the query
+// so the server applies its authoritative default page size.
+func TestListPromptRequests_OmitsZeroLimit(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/prompt-requests", r.URL.Path)
+		_, hasLimit := r.URL.Query()["limit"]
+		assert.False(t, hasLimit, "limit query param should be omitted when Limit is zero")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(PromptRequestsResponse{Success: true, Data: PromptRequestsData{Limit: 25}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.ListPromptRequests(ListPromptRequestsParams{Limit: 0, Offset: 0})
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, uint64(25), result.Data.Limit)
+}
