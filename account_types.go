@@ -95,6 +95,9 @@ type AIUsage struct {
 	NextResetDate string           `json:"nextResetDate"`
 	Prompt        AIUsageDimension `json:"prompt"`
 	Classify      AIUsageDimension `json:"classify"`
+	// EstimatedCostUSD is the sum of estimated prompt-request USD cost for the current
+	// billing period (all statuses).
+	EstimatedCostUSD float64 `json:"estimatedCostUsd"`
 }
 
 // AIUsageResponse represents the response for account AI usage.

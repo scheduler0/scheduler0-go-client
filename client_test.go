@@ -1883,9 +1883,9 @@ func TestReportLocalExecutions(t *testing.T) {
 }
 
 // TestAIUsageResponse_DecodesUsage verifies the client decodes the log-derived AI usage
-// payload: per-dimension limit/used/remaining plus the period boundary.
+// payload: per-dimension limit/used/remaining, period estimated cost, plus the period boundary.
 func TestAIUsageResponse_DecodesUsage(t *testing.T) {
-	payload := `{"success":true,"data":{"accountId":123,"periodStart":"2025-01-01T00:00:00Z","nextResetDate":"2025-02-01T00:00:00Z","prompt":{"limit":100000,"used":42,"remaining":99958},"classify":{"limit":1000,"used":250,"remaining":750}}}`
+	payload := `{"success":true,"data":{"accountId":123,"periodStart":"2025-01-01T00:00:00Z","nextResetDate":"2025-02-01T00:00:00Z","prompt":{"limit":100000,"used":42,"remaining":99958},"classify":{"limit":1000,"used":250,"remaining":750},"estimatedCostUsd":0.012345}}`
 
 	var resp AIUsageResponse
 	assert.NoError(t, json.Unmarshal([]byte(payload), &resp))
@@ -1898,6 +1898,7 @@ func TestAIUsageResponse_DecodesUsage(t *testing.T) {
 	assert.Equal(t, int64(1000), resp.Data.Classify.Limit)
 	assert.Equal(t, int64(250), resp.Data.Classify.Used)
 	assert.Equal(t, int64(750), resp.Data.Classify.Remaining)
+	assert.InDelta(t, 0.012345, resp.Data.EstimatedCostUSD, 1e-9)
 }
 
 // TestListPromptRequests_SendsLimit verifies that a non-zero limit is forwarded verbatim.
