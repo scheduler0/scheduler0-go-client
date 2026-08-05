@@ -16,19 +16,20 @@ type Executor struct {
 	// CloudAPIKey, CloudAPISecret and WebhookSecret are secrets. The server stores them
 	// encrypted and only returns them once, in the CreateExecutor response. They are
 	// always empty on GetExecutor, ListExecutors and UpdateExecutor responses.
-	CloudAPIKey    string  `json:"cloudApiKey"`
-	CloudAPISecret string  `json:"cloudApiSecret"`
-	WebhookURL     string  `json:"webhookUrl"`
-	WebhookSecret  string  `json:"webhookSecret"`
-	WebhookMethod  string  `json:"webhookMethod"`
-	Command        string  `json:"command,omitempty"`
-	WorkingDir     string  `json:"workingDir,omitempty"`
-	DateCreated    string  `json:"dateCreated"`
-	DateModified   *string `json:"dateModified"`
-	DateDeleted    *string `json:"dateDeleted"`
-	CreatedBy      string  `json:"createdBy"`
-	ModifiedBy     *string `json:"modifiedBy"`
-	DeletedBy      *string `json:"deletedBy"`
+	CloudAPIKey        string  `json:"cloudApiKey"`
+	CloudAPISecret     string  `json:"cloudApiSecret"`
+	WebhookURL         string  `json:"webhookUrl"`
+	WebhookSecret      string  `json:"webhookSecret"`
+	WebhookMethod      string  `json:"webhookMethod"`
+	Command            string  `json:"command,omitempty"`
+	WorkingDir         string  `json:"workingDir,omitempty"`
+	PayloadAggregation bool    `json:"payloadAggregation,omitempty"`
+	DateCreated        string  `json:"dateCreated"`
+	DateModified       *string `json:"dateModified"`
+	DateDeleted        *string `json:"dateDeleted"`
+	CreatedBy          string  `json:"createdBy"`
+	ModifiedBy         *string `json:"modifiedBy"`
+	DeletedBy          *string `json:"deletedBy"`
 }
 
 // ExecutorResponse represents the response for a single executor
@@ -39,42 +40,44 @@ type ExecutorResponse struct {
 
 // ExecutorRequestBody represents the request body for creating an executor
 type ExecutorRequestBody struct {
-	AccountID        int64    `json:"-"`
-	Name             string   `json:"name"`
-	Description      string   `json:"description,omitempty"`
-	Tags             []string `json:"tags,omitempty"`
-	Type             string   `json:"type"`
-	Region           string   `json:"region"`
-	CloudProvider    string   `json:"cloudProvider"`
-	CloudResourceURL string   `json:"cloudResourceUrl"`
-	CloudAPIKey      string   `json:"cloudApiKey,omitempty"`
-	CloudAPISecret   string   `json:"cloudApiSecret,omitempty"`
-	WebhookURL       string   `json:"webhookUrl,omitempty"`
-	WebhookSecret    string   `json:"webhookSecret,omitempty"`
-	WebhookMethod    string   `json:"webhookMethod,omitempty"`
-	Command          string   `json:"command,omitempty"`
-	WorkingDir       string   `json:"workingDir,omitempty"`
-	CreatedBy        string   `json:"createdBy"`
+	AccountID          int64    `json:"-"`
+	Name               string   `json:"name"`
+	Description        string   `json:"description,omitempty"`
+	Tags               []string `json:"tags,omitempty"`
+	Type               string   `json:"type"`
+	Region             string   `json:"region"`
+	CloudProvider      string   `json:"cloudProvider"`
+	CloudResourceURL   string   `json:"cloudResourceUrl"`
+	CloudAPIKey        string   `json:"cloudApiKey,omitempty"`
+	CloudAPISecret     string   `json:"cloudApiSecret,omitempty"`
+	WebhookURL         string   `json:"webhookUrl,omitempty"`
+	WebhookSecret      string   `json:"webhookSecret,omitempty"`
+	WebhookMethod      string   `json:"webhookMethod,omitempty"`
+	Command            string   `json:"command,omitempty"`
+	WorkingDir         string   `json:"workingDir,omitempty"`
+	PayloadAggregation bool     `json:"payloadAggregation,omitempty"`
+	CreatedBy          string   `json:"createdBy"`
 }
 
 // ExecutorUpdateRequestBody represents the request body for updating an executor
 type ExecutorUpdateRequestBody struct {
-	AccountID        int64    `json:"-"`
-	Name             string   `json:"name"`
-	Description      string   `json:"description,omitempty"`
-	Tags             []string `json:"tags,omitempty"`
-	Type             string   `json:"type"`
-	Region           string   `json:"region"`
-	CloudProvider    string   `json:"cloudProvider"`
-	CloudResourceURL string   `json:"cloudResourceUrl"`
-	CloudAPIKey      string   `json:"cloudApiKey,omitempty"`
-	CloudAPISecret   string   `json:"cloudApiSecret,omitempty"`
-	WebhookURL       string   `json:"webhookUrl,omitempty"`
-	WebhookSecret    string   `json:"webhookSecret,omitempty"`
-	WebhookMethod    string   `json:"webhookMethod,omitempty"`
-	Command          string   `json:"command,omitempty"`
-	WorkingDir       string   `json:"workingDir,omitempty"`
-	ModifiedBy       string   `json:"modifiedBy"`
+	AccountID          int64    `json:"-"`
+	Name               string   `json:"name"`
+	Description        string   `json:"description,omitempty"`
+	Tags               []string `json:"tags,omitempty"`
+	Type               string   `json:"type"`
+	Region             string   `json:"region"`
+	CloudProvider      string   `json:"cloudProvider"`
+	CloudResourceURL   string   `json:"cloudResourceUrl"`
+	CloudAPIKey        string   `json:"cloudApiKey,omitempty"`
+	CloudAPISecret     string   `json:"cloudApiSecret,omitempty"`
+	WebhookURL         string   `json:"webhookUrl,omitempty"`
+	WebhookSecret      string   `json:"webhookSecret,omitempty"`
+	WebhookMethod      string   `json:"webhookMethod,omitempty"`
+	Command            string   `json:"command,omitempty"`
+	WorkingDir         string   `json:"workingDir,omitempty"`
+	PayloadAggregation bool     `json:"payloadAggregation,omitempty"`
+	ModifiedBy         string   `json:"modifiedBy"`
 }
 
 // ExecutorDeleteRequestBody represents the request body for deleting an executor
@@ -126,6 +129,13 @@ type JobInvocationPayload struct {
 	Job                   Job    `json:"job"`
 	LastExecutionDateTime string `json:"lastExecutionDateTime,omitempty"`
 	LastExecutionStatus   string `json:"lastExecutionStatus,omitempty"`
+}
+
+// AggregatedJobInvocationPayload is delivered when payload aggregation is enabled
+// and multiple jobs sharing an executor fire at the same scheduled time.
+type AggregatedJobInvocationPayload struct {
+	Aggregated bool                   `json:"aggregated"`
+	Jobs       []JobInvocationPayload `json:"jobs"`
 }
 
 // TestInvocationResult reports the outcome of a test invocation.
