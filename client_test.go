@@ -1937,3 +1937,227 @@ func TestListPromptRequests_OmitsZeroLimit(t *testing.T) {
 	assert.True(t, result.Success)
 	assert.Equal(t, uint64(25), result.Data.Limit)
 }
+
+func TestRemoveSelfFromCluster(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/remove-self", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "removed"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.RemoveSelfFromCluster()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "removed", result.Data["status"])
+}
+
+func TestAddSelfToCluster(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/add-self", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "added"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.AddSelfToCluster()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "added", result.Data["status"])
+}
+
+func TestForceRebuildCluster(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/force-rebuild", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "1", r.URL.Query().Get("seedNodeId"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "rebuild initiated"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.ForceRebuildCluster(1)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestResetRaftState(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/reset-raft", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "raft reset"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.ResetRaftState()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestRemoveNode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/remove-node", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "2", r.URL.Query().Get("nodeId"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "node removed"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.RemoveNode(2)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestAddNode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/add-node", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "2", r.URL.Query().Get("nodeId"))
+		assert.Equal(t, "node2:9000", r.URL.Query().Get("nodeAddress"))
+		assert.Equal(t, "node2:7070", r.URL.Query().Get("clientAddress"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "node added"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.AddNode(2, "node2:9000", "node2:7070")
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestPromoteNode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/promote-node", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "2", r.URL.Query().Get("nodeId"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "node promoted to voter"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.PromoteNode(2)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestDemoteNode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/demote-node", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "2", r.URL.Query().Get("nodeId"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "node demoted to non-voter"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.DemoteNode(2)
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestTransferLeadership(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/transfer-leadership", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ClusterStatusResponse{Success: true, Data: map[string]string{"status": "leadership transferred"}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.TransferLeadership()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestListNodes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/list-nodes", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ListNodesResponse{Success: true, Data: []Node{
+			{ClientAddress: "node1:7070", NodeAddress: "node1:9000", NodeId: 1},
+		}})
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.ListNodes()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, uint64(1), result.Data[0].NodeId)
+}
+
+func TestDumpScheduleQueue(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/dump/schedule-queue", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":[{"jobId":1}]}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.DumpScheduleQueue()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.JSONEq(t, `[{"jobId":1}]`, string(result.Data))
+}
+
+func TestDumpJobExecutionsCache(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/dump/job-executions-cache", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":{}}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.DumpJobExecutionsCache()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestDumpJobQueues(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/dump/job-queues", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":[]}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.DumpJobQueues()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
+
+func TestDumpJobQueueVersions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/cluster/dump/job-queue-versions", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":[]}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.DumpJobQueueVersions()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+}
