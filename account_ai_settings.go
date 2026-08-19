@@ -16,13 +16,15 @@ func (c *Client) GetAccountAISettings(accountID string) (*AccountAISettingsRespo
 }
 
 // UpsertAccountAISettings creates or updates the AI provider settings for a given account.
-func (c *Client) UpsertAccountAISettings(accountID string, settings *AccountAISettings) (*AccountAISettingsResponse, error) {
+// The server acknowledges the write with a message rather than echoing back the saved
+// settings; call GetAccountAISettings afterward to read back what was persisted.
+func (c *Client) UpsertAccountAISettings(accountID string, settings *AccountAISettings) (*AccountAISettingsUpsertResponse, error) {
 	req, err := c.newRequest("PUT", "/ai/settings", settings, accountID)
 	if err != nil {
 		return nil, err
 	}
 
-	var result AccountAISettingsResponse
+	var result AccountAISettingsUpsertResponse
 	if err = c.do(req, &result); err != nil {
 		return nil, err
 	}

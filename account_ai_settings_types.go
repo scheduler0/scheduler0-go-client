@@ -34,6 +34,16 @@ type AccountAISettingsResponse struct {
 	Data    AccountAISettings `json:"data"`
 }
 
+// AccountAISettingsUpsertResponse wraps the standard API envelope for PUT /ai/settings.
+// Unlike GET, the server acknowledges the write with a message and does not echo back
+// the saved settings (see controllers.UpsertAISettings).
+type AccountAISettingsUpsertResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Message string `json:"message"`
+	} `json:"data"`
+}
+
 // AIModelsResponse wraps the standard API envelope for the GET /ai/models catalog.
 // Data maps provider names to their approved ModelInfo lists.
 type AIModelsResponse struct {

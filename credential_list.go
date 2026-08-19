@@ -5,8 +5,12 @@ import "fmt"
 // ListCredentials retrieves all credentials with optional query parameters
 func (c *Client) ListCredentials(params ListCredentialsParams) (*PaginatedCredentialsResponse, error) {
 	queryParams := map[string]string{
-		"limit":  fmt.Sprintf("%d", params.Limit),
 		"offset": fmt.Sprintf("%d", params.Offset),
+	}
+	// Omit a zero limit so the server applies its authoritative default page size (and its
+	// maximum cap) rather than being asked for an explicit zero-length page.
+	if params.Limit > 0 {
+		queryParams["limit"] = fmt.Sprintf("%d", params.Limit)
 	}
 
 	if params.OrderBy != "" {

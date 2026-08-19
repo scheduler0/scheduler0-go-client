@@ -17,7 +17,6 @@ type Credential struct {
 	PlaintextSecret string   `json:"plaintextSecret,omitempty"` // Returned once on creation only
 	DateCreated     string   `json:"dateCreated"`
 	DateModified    *string  `json:"dateModified"`
-	DateDeleted     *string  `json:"dateDeleted"`
 	CreatedBy       string   `json:"createdBy"`
 	ModifiedBy      *string  `json:"modifiedBy"`
 	DeletedBy       *string  `json:"deletedBy"`

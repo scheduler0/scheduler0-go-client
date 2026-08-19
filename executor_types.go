@@ -25,7 +25,6 @@ type Executor struct {
 	WorkingDir     string  `json:"workingDir,omitempty"`
 	DateCreated    string  `json:"dateCreated"`
 	DateModified   *string `json:"dateModified"`
-	DateDeleted    *string `json:"dateDeleted"`
 	CreatedBy      string  `json:"createdBy"`
 	ModifiedBy     *string `json:"modifiedBy"`
 	DeletedBy      *string `json:"deletedBy"`
