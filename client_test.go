@@ -1538,6 +1538,7 @@ func TestGetAccount(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/accounts/123", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "123", r.Header.Get("X-Account-ID"))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(mockResponse)
 	}))
@@ -1550,6 +1551,60 @@ func TestGetAccount(t *testing.T) {
 	assert.True(t, result.Success)
 	assert.Equal(t, "Test Account", result.Data.Name)
 	assert.Len(t, result.Data.Features, 1)
+}
+
+// TestGetAccountOverridesClientAccountID verifies the path account id wins over the
+// client-wide default so the server's path/header scope check passes for any account.
+func TestGetAccountOverridesClientAccountID(t *testing.T) {
+	mockResponse := AccountResponse{Success: true, Data: Account{ID: 456, Name: "Other"}}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/accounts/456", r.URL.Path)
+		assert.Equal(t, "456", r.Header.Get("X-Account-ID"))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	// createTestAPIClient defaults X-Account-ID to "123".
+	client := createTestAPIClient(server)
+
+	result, err := client.GetAccount("456")
+	assert.NoError(t, err)
+	assert.Equal(t, int64(456), result.Data.ID)
+}
+
+func TestUpdateAccount(t *testing.T) {
+	mockResponse := AccountResponse{
+		Success: true,
+		Data: Account{
+			ID:          456,
+			Name:        "Renamed",
+			DateCreated: "2025-01-01T00:00:00Z",
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/accounts/456", r.URL.Path)
+		assert.Equal(t, "PUT", r.Method)
+		// Path account must be sent as the header account, not the client default ("123").
+		assert.Equal(t, "456", r.Header.Get("X-Account-ID"))
+
+		var body AccountUpdateRequestBody
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "Renamed", body.Name)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+
+	result, err := client.UpdateAccount("456", &AccountUpdateRequestBody{Name: "Renamed"})
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "Renamed", result.Data.Name)
 }
 
 func TestCreateAccount(t *testing.T) {
