@@ -14,11 +14,15 @@ type ModelInfo struct {
 	Default     bool   `json:"default,omitempty"`
 }
 
-// AccountAISettings holds per-account AI provider credentials.
+// AccountAISettings holds per-account AI provider credentials and the ordered
+// active-model list (primary first, then fallbacks). It is both the GET /ai/settings
+// response body and the PUT /ai/settings request body.
+//
+// On read, key fields are masked (returned as "•") when a key is stored; they are
+// never returned in plaintext. AccountID, DateCreated and DateModified are
+// server-set and ignored on write.
 type AccountAISettings struct {
 	AccountID          uint64        `json:"account_id,omitempty"`
-	Provider           string        `json:"provider,omitempty"`
-	Model              string        `json:"model,omitempty"`
 	ActiveModels       []ActiveModel `json:"active_models,omitempty"`
 	OpenAIAPIKey       string        `json:"openai_api_key,omitempty"`
 	AnthropicAPIKey    string        `json:"anthropic_api_key,omitempty"`
@@ -26,6 +30,8 @@ type AccountAISettings struct {
 	BedrockSecretKey   string        `json:"bedrock_secret_key,omitempty"`
 	BedrockRegion      string        `json:"bedrock_region,omitempty"`
 	OpenRouterAPIKey   string        `json:"openrouter_api_key,omitempty"`
+	DateCreated        string        `json:"date_created,omitempty"`
+	DateModified       *string       `json:"date_modified,omitempty"`
 }
 
 // AccountAISettingsResponse wraps the standard API envelope for a single settings object.
@@ -47,6 +53,6 @@ type AccountAISettingsUpsertResponse struct {
 // AIModelsResponse wraps the standard API envelope for the GET /ai/models catalog.
 // Data maps provider names to their approved ModelInfo lists.
 type AIModelsResponse struct {
-	Success bool                     `json:"success"`
-	Data    map[string][]ModelInfo   `json:"data"`
+	Success bool                   `json:"success"`
+	Data    map[string][]ModelInfo `json:"data"`
 }

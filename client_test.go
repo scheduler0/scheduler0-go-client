@@ -1688,13 +1688,15 @@ func TestGetAsyncTask(t *testing.T) {
 	mockResponse := AsyncTaskResponse{
 		Success: true,
 		Data: AsyncTask{
-			ID:          1,
-			RequestID:   "request-123",
-			Input:       "input data",
-			Output:      "output data",
-			Service:     "job-service",
-			State:       2, // Success
-			DateCreated: "2025-01-01T00:00:00Z",
+			ID:           1,
+			RequestID:    "request-123",
+			Input:        "input data",
+			Output:       "output data",
+			Service:      "job-service",
+			State:        AsyncTaskSuccess,
+			DateCreated:  "2025-01-01T00:00:00Z",
+			AccountID:    123,
+			DateModified: "2025-01-01T00:00:01Z",
 		},
 	}
 
@@ -1712,7 +1714,9 @@ func TestGetAsyncTask(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, "request-123", result.Data.RequestID)
-	assert.Equal(t, 2, result.Data.State)
+	assert.Equal(t, AsyncTaskSuccess, result.Data.State)
+	assert.Equal(t, int64(123), result.Data.AccountID)
+	assert.Equal(t, "2025-01-01T00:00:01Z", result.Data.DateModified)
 }
 
 func TestGetDateRangeAnalytics(t *testing.T) {
@@ -2215,4 +2219,69 @@ func TestDumpJobQueueVersions(t *testing.T) {
 	result, err := client.DumpJobQueueVersions()
 	assert.NoError(t, err)
 	assert.True(t, result.Success)
+}
+
+func TestGetAccountAISettings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/settings", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "456", r.Header.Get("X-Account-ID"))
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":{"account_id":456,"active_models":[{"provider":"anthropic","model":"claude-sonnet-4-5"}],"anthropic_api_key":"•","date_created":"2025-01-01T00:00:00Z","date_modified":"2025-01-02T00:00:00Z"}}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.GetAccountAISettings("456")
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, uint64(456), result.Data.AccountID)
+	assert.Len(t, result.Data.ActiveModels, 1)
+	assert.Equal(t, "anthropic", result.Data.ActiveModels[0].Provider)
+	assert.Equal(t, "•", result.Data.AnthropicAPIKey)
+	assert.Equal(t, "2025-01-01T00:00:00Z", result.Data.DateCreated)
+	assert.NotNil(t, result.Data.DateModified)
+}
+
+func TestUpsertAccountAISettings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/settings", r.URL.Path)
+		assert.Equal(t, "PUT", r.Method)
+		var body map[string]interface{}
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "sk-ant-test", body["anthropic_api_key"])
+		assert.Contains(t, body, "active_models")
+		assert.NotContains(t, body, "provider")
+		assert.NotContains(t, body, "model")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":{"message":"AI settings saved"}}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.UpsertAccountAISettings("123", &AccountAISettings{
+		ActiveModels:    []ActiveModel{{Provider: "anthropic", Model: "claude-sonnet-4-5"}},
+		AnthropicAPIKey: "sk-ant-test",
+	})
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, "AI settings saved", result.Data.Message)
+}
+
+func TestGetAIModels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/ai/models", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":{"openai":[{"id":"gpt-4o","display_name":"GPT-4o","default":true}],"anthropic":[{"id":"claude-sonnet-4-5","display_name":"Claude Sonnet 4.5"}]}}`))
+	}))
+	defer server.Close()
+
+	client := createTestAPIClient(server)
+	result, err := client.GetAIModels()
+	assert.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data["openai"], 1)
+	assert.True(t, result.Data["openai"][0].Default)
+	assert.Equal(t, "Claude Sonnet 4.5", result.Data["anthropic"][0].DisplayName)
 }

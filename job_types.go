@@ -1,5 +1,11 @@
 package scheduler0_go_client
 
+// Job statuses accepted in JobRequestBody.Status / JobUpdateRequestBody.Status.
+const (
+	JobStatusActive   = "active"
+	JobStatusInactive = "inactive"
+)
+
 // Job represents a scheduled job
 type Job struct {
 	ID                int64   `json:"id,omitempty"`

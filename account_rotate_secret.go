@@ -27,10 +27,10 @@ type RotateSecretResponse struct {
 // it is re-encrypted too; the api_key is a stable opaque identifier that is left unchanged,
 // so rotation does not invalidate any client's credential.
 //
-// This endpoint is self-hosting only and requires a BasicAuth client
-// (NewBasicAuthClient). The operator must update SecretKey in the secrets source (and
-// reload/restart the server) before calling this method, then pass the previous key as
-// oldSecretKey.
+// This endpoint is self-hosting only and requires either a credential with the
+// "admin" scope or a BasicAuth client (NewBasicAuthClient). The operator must update
+// SecretKey in the secrets source (and reload/restart the server) before calling this
+// method, then pass the previous key as oldSecretKey.
 func (c *Client) RotateSecret(oldSecretKey string) (*RotateSecretResponse, error) {
 	req, err := c.newRequest("POST", "/account/rotate-secret", RotateSecretRequest{OldSecretKey: oldSecretKey})
 	if err != nil {

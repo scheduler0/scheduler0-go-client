@@ -1,5 +1,14 @@
 package scheduler0_go_client
 
+// Credential scopes accepted in CredentialCreateRequestBody.Scopes. "admin" satisfies
+// every other scope.
+const (
+	ScopeRead    = "read"
+	ScopeWrite   = "write"
+	ScopeExecute = "execute"
+	ScopeAdmin   = "admin"
+)
+
 // Credential represents a credential returned by the Scheduler0 API.
 //
 // API key / secret model:
@@ -52,7 +61,9 @@ type ListCredentialsParams struct {
 }
 
 // CredentialCreateRequestBody represents the request body for creating a credential.
-// Scopes must be a subset of {"read","write","execute"} and is required by the API.
+// Scopes is required: a non-empty list drawn from "read", "write", "execute", "admin"
+// with no duplicates. "admin" can only be granted by an admin credential or an
+// operator (basic auth); otherwise the server responds 403.
 type CredentialCreateRequestBody struct {
 	AccountID int64    `json:"-"`
 	Archived  bool     `json:"archived,omitempty"`
@@ -63,7 +74,12 @@ type CredentialCreateRequestBody struct {
 	ExpiresInSeconds *int64 `json:"expiresInSeconds,omitempty"`
 }
 
-// CredentialUpdateRequestBody represents the request body for updating a credential
+// CredentialUpdateRequestBody represents the request body for updating a credential.
+//
+// Only Archived and ModifiedBy are mutable; apiKey, apiSecret, scopes and
+// expiresAt are fixed at creation and the server rejects attempts to change the
+// key or secret with 400. Archived is omitempty and the server treats an omitted
+// archived as false, so Archived: false un-archives.
 type CredentialUpdateRequestBody struct {
 	AccountID  int64  `json:"-"`
 	Archived   bool   `json:"archived,omitempty"`
