@@ -4,89 +4,10 @@
   <img src="https://raw.githubusercontent.com/scheduler0/scheduler0-go-client/main/logo.png" alt="Scheduler0 Logo" width="200">
 </div>
 
-A Go client library for interacting with the [Scheduler0 API](https://scheduler0.com). This client provides a convenient way to manage accounts, credentials, executions, executors, projects, jobs, features, create jobs from AI prompts, and monitor the health of your Scheduler0 cluster.
+The official Go client for the [Scheduler0](https://scheduler0.com) HTTP API (`/api/v1`). It is a thin, typed wrapper: one method per endpoint, request/response structs that mirror the server JSON, and no hidden behaviour (no retries, no caching, no background goroutines).
 
-## Features
-
-- **Account Management**
-  - Create accounts
-  - Get account details
-  - Update account details
-  - Add/remove features from accounts
-  - Get/increase the monthly execution count
-  - Get/increase the monthly AI prompt- and classify-request quotas
-  - Get/add platform tokens
-  - Configure per-account AI provider settings (BYOK)
-
-- **Feature Management**
-  - List available features
-  - Add/remove all features for an account
-
-- **Credentials Management**
-  - List credentials with pagination and ordering
-  - Create new credentials
-  - Get credential details
-  - Update credentials
-  - Delete and archive credentials
-  - Rotate the server secret key
-
-- **Executions Management**
-  - List job executions with date filtering
-  - Filter by project ID and job ID
-  - View execution details and logs
-  - Date-range analytics and lifetime totals
-  - Clean up old execution logs
-
-- **Executors Management**
-  - List executors with pagination and ordering
-  - Create new executors (webhook, cloud function)
-  - Get executor details
-  - Update executors
-  - Delete executors
-
-- **Local Executors Management**
-  - Register local executors
-  - Pull assigned jobs for a local executor
-  - Report local execution results in batches
-
-- **Backup & Restore**
-  - Start an online database backup
-  - Restore from a backup file
-
-- **Projects Management**
-  - List projects with pagination
-  - Create new projects
-  - Get project details
-  - Update projects
-  - Delete projects
-
-- **Jobs Management**
-  - List jobs with pagination and ordering
-  - Create new jobs with comprehensive scheduling options
-  - Batch create multiple jobs in a single request
-  - Get job details
-  - Update jobs
-  - Delete jobs
-
-- **AI-Powered Job Creation**
-  - Create job configurations from natural language prompts
-  - AI generates cron expressions, scheduling, and job metadata
-  - Supports purposes, events, recipients, and channels
-  - Classify prompts with the intent guardrail (no credits consumed)
-  - Schedule jobs directly from a prompt in one call
-  - Analyze conversations for commitments and follow-up suggestions
-  - Recommend optimal send times across time zones
-  - List approved AI models and inspect the prompt-request log
-
-- **Async Tasks Management**
-  - Get async task status by request ID
-
-- **Health Monitoring**
-  - Check cluster health
-  - View raft statistics
-  - Monitor leader status
-
-> **Note**: Account Management, Feature Management, and Async Tasks Management APIs are designed for users who run Scheduler0 in their own infrastructure and want granular control over team access and resource usage.
+- API reference: <https://api-reference.scheduler0.com>
+- Documentation: <https://docs.scheduler0.com>
 
 ## Installation
 
@@ -94,718 +15,597 @@ A Go client library for interacting with the [Scheduler0 API](https://scheduler0
 go get github.com/scheduler0/scheduler0-go-client/v2
 ```
 
-Then import it (the package name is `scheduler0_go_client`):
+The package name is `scheduler0_go_client`:
 
 ```go
 import scheduler0_go_client "github.com/scheduler0/scheduler0-go-client/v2"
 ```
 
-## API Documentation
+## Creating a client
 
-- **OpenAPI Specification**: [openapi.json](https://api-reference.scheduler0.com) - Complete API specification
-
-## Authentication
-
-The Scheduler0 Go client supports multiple authentication methods:
-
-### 1. API Key + Secret Authentication (Default)
-Most endpoints require API Key and Secret authentication with an Account ID:
-
-```go
-client, err := scheduler0_go_client.NewAPIClientWithAccount(
-    "http://localhost:7070",  // Base URL
-    "v1",                     // API Version
-    "your-api-key",           // API Key
-    "your-api-secret",        // API Secret
-    "123",                    // Account ID
-)
-```
-
-If you don't need a default Account ID (e.g. for account-level endpoints), use `NewAPIClient`:
-
-```go
-client, err := scheduler0_go_client.NewAPIClient(
-    "http://localhost:7070",  // Base URL
-    "v1",                     // API Version
-    "your-api-key",           // API Key
-    "your-api-secret",        // API Secret
-)
-```
-
-### 2. Basic Authentication (Peer Communication)
-For peer-to-peer communication:
-
-```go
-client, err := scheduler0_go_client.NewBasicAuthClient(
-    "http://localhost:7070",  // Base URL
-    "v1",                     // API Version
-    "username",               // Username
-    "password",               // Password
-)
-```
-
-### 3. Options Pattern
-For more flexibility, use the options pattern:
+`NewClient` takes the base URL, the API version segment (always `"v1"` today) and options. Requests are sent to `<baseURL>/api/<version>/<endpoint>`. There is no default base URL; the hosted API is `https://api.scheduler0.com`.
 
 ```go
 client, err := scheduler0_go_client.NewClient(
-    "http://localhost:7070",  // Base URL
-    "v1",                     // API Version
-    scheduler0_go_client.WithAPIKey("api-key", "api-secret"),
+    "https://api.scheduler0.com",
+    "v1",
+    scheduler0_go_client.WithAPIKey("your-api-key", "your-secret-key"),
     scheduler0_go_client.WithAccountID("123"),
 )
 ```
 
+Equivalent shorthands:
+
+```go
+// API key + secret + account ID (what almost every caller wants)
+client, err := scheduler0_go_client.NewAPIClientWithAccount("https://api.scheduler0.com", "v1", "api-key", "secret-key", "123")
+
+// API key + secret only; pass the account ID per call or via body AccountID fields
+client, err = scheduler0_go_client.NewAPIClient("https://api.scheduler0.com", "v1", "api-key", "secret-key")
+
+// Basic auth (self-hosted operator / peer path, sends X-Peer: cmd)
+client, err = scheduler0_go_client.NewBasicAuthClient("http://127.0.0.1:9091", "v1", "admin", "admin")
+```
+
+### Authentication headers
+
+With `WithAPIKey`, every request carries `X-API-Key` and `X-Secret-Key`. `X-Account-ID` is added when an account ID can be resolved, in this order of precedence:
+
+1. an explicit per-call override (the trailing `accountIDOverride ...string` argument on methods that have one, or the `AccountID` field on `List*Params`),
+2. a non-zero `AccountID` field on the request body struct (these fields are tagged `json:"-"` so they are used for the header only, not serialized),
+3. the client default set with `WithAccountID`.
+
+The server requires all three headers on every request except `GET /healthcheck`, including the `/accounts/*`, `/features` and `/cluster/*` routes. If `WithBasicAuth` is set it takes precedence over the API key and the request is sent with HTTP Basic auth plus `X-Peer: cmd`.
+
+### HTTP client, timeouts, retries
+
+`Client.HTTPClient` is a plain `&http.Client{}` with no timeout. Set your own:
+
+```go
+client.HTTPClient = &http.Client{Timeout: 30 * time.Second}
+```
+
+The client does not retry, back off or follow `Location` headers. Handle that in your application if you need it.
+
+## Scopes
+
+Each credential has a set of scopes. Calls made with a credential missing the required scope fail with `403`; expired credentials fail with `401`. `admin` satisfies every scope.
+
+| Scope     | Grants                                                                                                                                                                            |
+|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `read`    | All `GET`s: jobs, projects, credentials, executors, executions (`/executions`, `/analytics`, `/totals`), async tasks, features, AI settings, AI models, AI prompt-request log, local-executor job pull |
+| `write`   | Create/update/delete jobs, projects, credentials, executors; `PUT /ai/settings`; register local executors                                                                        |
+| `execute` | `POST /ai/prompt`, `/ai/prompt/classify`, `/ai/schedule`, `/ai/suggestions/analyze`, `/ai/suggestions/time`, `/executions/cleanup-old-logs`, `/executors/{id}/test-invoke`, local-executor execution reports |
+| `admin`   | `/accounts/*`, `/account/rotate-secret`, `/cluster/*` (also reachable with Basic auth when self-hosting)                                                                          |
+
+Constants: `ScopeRead`, `ScopeWrite`, `ScopeExecute`, `ScopeAdmin`.
+
+## Response envelope and errors
+
+Every response is `{"success": bool, "data": ...}` and every response struct exposes it as `Success` and `Data`. `204` responses have no body and the corresponding methods return only `error`.
+
+For any HTTP status `>= 400` the client returns `fmt.Errorf("API error: %s", body)` where `body` is the raw response (normally `{"success":false,"data":"<message>"}`). The status code is **not** included in the error string, and there are no typed errors except `*PromptSkippedError` (see [AI](#ai)). Inspect the message text if you need to branch:
+
+```go
+result, err := client.GetJob("42")
+if err != nil {
+    // err.Error() == `API error: {"success":false,"data":"job not found"}`
+    log.Fatal(err)
+}
+```
+
+A `2xx` response with `Success == false` is possible (see the credential-update note below), so check `Success` on responses you care about.
+
 ## Usage
 
-### Managing Accounts
+### Projects
 
 ```go
-// Create a new account
-account := &scheduler0_go_client.AccountCreateRequestBody{
-    Name: "My Account",
+// GET /projects
+projects, err := client.ListProjects(scheduler0_go_client.ListProjectsParams{
+    Limit:            10,             // optional; server default 10, max 100
+    Offset:           0,
+    OrderBy:          "date_created", // id | name | description | date_created | account_id
+    OrderByDirection: "desc",         // asc | desc
+})
+for _, p := range projects.Data.Projects {
+    fmt.Println(p.ID, p.Name)
 }
-result, err := client.CreateAccount(account)
 
-// Get account details
-account, err := client.GetAccount("account-id")
-
-// Update an account's name
-updated, err := client.UpdateAccount("account-id", &scheduler0_go_client.AccountUpdateRequestBody{
-    Name: "Renamed Account",
+// POST /projects -> 201. name, description and createdBy are required; name is unique per account.
+created, err := client.CreateProject(&scheduler0_go_client.ProjectRequestBody{
+    Name:        "billing",
+    Description: "Invoice reminders",
+    CreatedBy:   "user@example.com",
 })
 
-// Add feature to account
-feature := &scheduler0_go_client.FeatureRequest{
-    FeatureID: 1,
-}
-result, err := client.AddFeatureToAccount("account-id", feature)
+// GET /projects/{id}
+project, err := client.GetProject(created.Data.ID)
 
-// Remove feature from account
-err := client.RemoveFeatureFromAccount("account-id", feature)
-
-// Get / increase the account's monthly execution count
-count, err := client.GetAccountExecutionCount("account-id")
-increased, err := client.IncreaseAccountExecutionCount("account-id", 10000)
-
-// Get the account's log-derived AI request usage (prompt + classify) for the current period.
-// Returns per-dimension limit/used/remaining plus the period boundary; limits are
-// feature-derived and usage is counted from the request logs (success-only).
-usage, err := client.GetAIUsage("account-id")
-
-// Get / add platform tokens
-tokens, err := client.GetAccountTokens("account-id")
-added, err := client.AddAccountTokens("account-id", 1000)
-```
-
-> **Note:** Account, token, and execution-count endpoints are account/cluster-level operations. They require a credential carrying the **`admin`** scope, or Basic Authentication (operator bootstrap).
-
-### AI Provider Settings (Bring Your Own Key)
-
-Configure a per-account model provider and key so `CreateJobFromPrompt` uses your own credentials. Supported providers: `openai`, `anthropic`, `bedrock`. Credential fields are encrypted at rest and never returned in plaintext by `GetAccountAISettings`.
-
-```go
-// Read current settings (keys are redacted)
-settings, err := client.GetAccountAISettings("account-id")
-
-// Save settings
-saved, err := client.UpsertAccountAISettings("account-id", &scheduler0_go_client.AccountAISettings{
-    Provider:        "anthropic",
-    Model:           "claude-sonnet-4-5", // optional; provider default used when empty
-    AnthropicAPIKey: "sk-ant-...",
+// PUT /projects/{id}. Only description can change; name is immutable.
+updated, err := client.UpdateProject(created.Data.ID, &scheduler0_go_client.ProjectUpdateRequestBody{
+    Description: "Invoice reminders (EU)",
+    ModifiedBy:  "user@example.com",
 })
 
-// List the approved models per provider (openai, anthropic, bedrock, openrouter)
-models, err := client.GetAIModels()
+// DELETE /projects/{id} -> 204. Also deletes the project's jobs.
+err = client.DeleteProject(created.Data.ID, &scheduler0_go_client.ProjectDeleteRequestBody{
+    DeletedBy: "user@example.com",
+})
 ```
 
-### Managing Features
+### Jobs
+
+`POST /jobs` always takes an **array** and returns `202 Accepted` with `Data` set to a request ID. The jobs are created asynchronously; call `GetAsyncTask(requestID)` to learn the outcome (`Output` holds the created jobs as JSON on success, or an error JSON on failure). `CreateJob` is a convenience wrapper that sends a one-element array.
 
 ```go
-// List all available features
-features, err := client.ListFeatures()
+projectID := int64(12)
+executorID := int64(7)
 
-// Add or remove every feature for an account (self-hosting)
-err := client.AddAllFeaturesToAccount("account-id")
-err := client.RemoveAllFeaturesFromAccount("account-id")
-```
+// POST /jobs -> 202. createdBy is required on every element.
+resp, err := client.CreateJob(&scheduler0_go_client.JobRequestBody{
+    ProjectID:  projectID,
+    Timezone:   "UTC",
+    ExecutorID: &executorID,
+    Spec:       "0 30 * * * *",             // cron with seconds; empty spec = one-time job fired at StartDate
+    Data:       `{"invoiceId":42}`,          // opaque payload delivered to the executor
+    StartDate:  "2026-01-01T00:00:00Z",     // optional, RFC3339
+    EndDate:    "2026-12-31T23:59:59Z",     // optional
+    RetryMax:   3,                          // optional
+    Status:     scheduler0_go_client.JobStatusActive, // active | inactive
+    CreatedBy:  "user@example.com",
+})
+requestID := resp.Data
 
-### Managing Credentials
+// Several jobs in one request
+batch, err := client.BatchCreateJobs([]scheduler0_go_client.JobRequestBody{
+    {ProjectID: projectID, Timezone: "UTC", Spec: "0 0 9 * * 1", CreatedBy: "user@example.com"},
+    {ProjectID: projectID, Timezone: "UTC", Spec: "0 0 9 * * 5", CreatedBy: "user@example.com"},
+})
 
-```go
-// List credentials with pagination and ordering
-credentials, err := client.ListCredentials(scheduler0_go_client.ListCredentialsParams{
+// GET /async-tasks/{requestId}. Blocks server-side until the task finishes.
+task, err := client.GetAsyncTask(requestID)
+switch task.Data.State {
+case scheduler0_go_client.AsyncTaskSuccess:
+    fmt.Println("created:", task.Data.Output)
+case scheduler0_go_client.AsyncTaskFailed:
+    fmt.Println("failed:", task.Data.Output)
+}
+
+// GET /jobs
+jobs, err := client.ListJobs(scheduler0_go_client.ListJobsParams{
+    ProjectID:        "12",           // optional filter; "" = all projects
     Limit:            10,
     Offset:           0,
-    OrderBy:          "date_created",
+    OrderBy:          "date_created", // id | project_id | spec | date_created | timezone | account_id | date_modified | modified_by | deleted_by | executor_id | start_date | end_date | retry_max
     OrderByDirection: "desc",
 })
 
-// Create a new credential. Scopes must be a non-empty subset of
-// read/write/execute/admin. Optionally request a shorter TTL via ExpiresInSeconds
-// (the server clamps it; omit for the default 90-day expiry). Granting "admin"
-// requires an operator or an existing admin credential.
-ttl := int64(8 * 60 * 60) // 8 hours
-credential, err := client.CreateCredential(&scheduler0_go_client.CredentialCreateRequestBody{
-    CreatedBy:        "user@example.com",
-    Scopes:           []string{"read", "write", "execute"},
-    ExpiresInSeconds: &ttl, // optional
-})
+// GET /jobs/{id}
+job, err := client.GetJob("42")
 
-// Get a specific credential
-credential, err := client.GetCredential("credential-id")
-
-// Update a credential
-credential, err := client.UpdateCredential("credential-id", &scheduler0_go_client.CredentialUpdateRequestBody{
+// PUT /jobs/{id}. modifiedBy is required. timezone, timezoneOffset and executorId keep
+// their current values when omitted.
+updatedJob, err := client.UpdateJob("42", &scheduler0_go_client.JobUpdateRequestBody{
+    Spec:       "0 0 * * * *",
+    Status:     scheduler0_go_client.JobStatusInactive,
     ModifiedBy: "user@example.com",
 })
 
-// Delete a credential
-err := client.DeleteCredential("credential-id", &scheduler0_go_client.CredentialDeleteRequestBody{
-    DeletedBy: "user@example.com",
-})
-
-// Archive a credential (disables it without deleting)
-err := client.ArchiveCredential("credential-id", "user@example.com")
-
-// Re-encrypt stored secrets (credential secrets + executor cloud keys + AI provider
-// keys) with a new server secret key (self-hosting). Update the server's SecretKey and
-// reload it first, then call this with the previous key.
-rotated, err := client.RotateSecret("<old-hex-secret-key>")
-// rotated.Data.CredentialsRotated, rotated.Data.ExecutorsRotated, rotated.Data.AISettingsRotated
+// DELETE /jobs/{id} -> 204
+err = client.DeleteJob("42", &scheduler0_go_client.JobDeleteRequestBody{DeletedBy: "user@example.com"})
 ```
 
-### Managing Executions
+`GetJob`, `UpdateJob`, `DeleteJob`, `CreateJob` and `BatchCreateJobs` accept an optional trailing account ID override, e.g. `client.GetJob("42", "456")`.
+
+### Executors
+
+Executor types (`ExecutorTypeCloudFunction`, `ExecutorTypeWebhookURL`, `ExecutorTypeLocal`):
+
+| Type             | Required fields                                                     |
+|------------------|---------------------------------------------------------------------|
+| `webhook_url`    | `WebhookURL`, `WebhookMethod` (`GET`/`POST`/`PUT`/`DELETE`)          |
+| `cloud_function` | `CloudResourceURL` (plus provider-specific `CloudProvider`, `Region`, `CloudAPIKey`, `CloudAPISecret`) |
+| `local`          | `Command` (see [Local executors](#local-executors))                  |
+
+`CloudAPIKey`, `CloudAPISecret` and `WebhookSecret` are returned **only** in the `CreateExecutor` response; they are empty on get, list and update.
 
 ```go
-// List executions with date filtering
-executions, err := client.ListExecutions(scheduler0_go_client.ListExecutionsParams{
-    StartDate: "2024-01-01T00:00:00Z",  // Required: Start date (RFC3339 format)
-    EndDate:   "2024-12-31T23:59:59Z",  // Required: End date (RFC3339 format)
-    ProjectID: 0,                       // Optional: Project ID (0 for all)
-    JobID:     0,                       // Optional: Job ID (0 for all)
-    AccountID: 0,                       // Optional: Account ID override (0 uses client default)
-    Limit:     10,                      // Required: Maximum number of items
-    Offset:    0,                       // Required: Number of items to skip
-})
-
-// Execution counts grouped into per-minute buckets for a time window
-analytics, err := client.GetDateRangeAnalytics(scheduler0_go_client.GetDateRangeAnalyticsParams{
-    StartDate: "2024-01-01",  // YYYY-MM-DD
-    StartTime: "00:00:00",    // HH:MM:SS or HH:MM
-})
-
-// Lifetime totals (scheduled / success / failed) for the account
-totals, err := client.GetExecutionTotals(123)
-
-// Delete execution logs older than a retention window (self-hosting; peer auth)
-result, err := client.CleanupOldExecutionLogs("123", 6) // retentionMonths
-```
-
-### Backup and Restore
-
-Database backup/restore for self-hosted clusters (requires an `admin`-scoped credential, or Basic Authentication).
-
-```go
-// Start an online backup
-backup, err := client.BackupDatabase()
-
-// Restore from a backup file (S3 object key when S3 is configured, else local path)
-restore, err := client.RestoreDatabase("backup-2024-01-01.db")
-```
-
-### Managing Executors
-
-```go
-// List executors with pagination and ordering
+// GET /executors
 executors, err := client.ListExecutors(scheduler0_go_client.ListExecutorsParams{
-    AccountID:        0,                // Optional: Account ID override (0 uses client default)
     Limit:            10,
     Offset:           0,
-    OrderBy:          "date_created",
+    OrderBy:          "date_created", // id | date_created | date_modified | created_by | modified_by | deleted_by
     OrderByDirection: "desc",
 })
 
-// Create a webhook executor
-executor := &scheduler0_go_client.ExecutorRequestBody{
-    Name:           "webhook-executor",
-    Type:           "webhook_url",
-    WebhookURL:     "https://example.com/webhook",
-    WebhookMethod:  "POST",
-    WebhookSecret:  "secret-key",
-}
-
-// Create a cloud function executor
-executor := &scheduler0_go_client.ExecutorRequestBody{
-    Name:             "cloud-function-executor",
-    Type:             "cloud_function",
-    Region:           "us-west-1",
-    CloudProvider:    "aws",
-    CloudResourceURL: "https://example.com/function",
-    CloudAPIKey:      "api-key",
-    CloudAPISecret:   "api-secret",
-}
-
-result, err := client.CreateExecutor(executor)
-
-// Get a specific executor
-executor, err := client.GetExecutor("executor-id")
-
-// Update an executor
-update := &scheduler0_go_client.ExecutorUpdateRequestBody{
-    Name: "updated-executor",
-    // ... other fields
-}
-result, err := client.UpdateExecutor("executor-id", update)
-
-// Delete an executor
-err := client.DeleteExecutor("executor-id", &scheduler0_go_client.ExecutorDeleteRequestBody{
-    DeletedBy: "user@example.com",
+// POST /executors -> 201
+webhook, err := client.CreateExecutor(&scheduler0_go_client.ExecutorRequestBody{
+    Name:          "invoice-webhook",
+    Description:   "Sends invoice reminder emails", // used by /ai/schedule to match executors
+    Tags:          []string{"email", "billing"},
+    Type:          scheduler0_go_client.ExecutorTypeWebhookURL,
+    WebhookURL:    "https://example.com/hooks/invoice",
+    WebhookMethod: "POST",
+    WebhookSecret: "shared-secret",
+    CreatedBy:     "user@example.com",
 })
 
-// Test-invoke an executor with a synthetic job — fires immediately, no waiting
-// for the cron spec/start date, and no side effects (nothing is persisted or
-// rescheduled). The body is optional; pass nil to use a default synthetic job.
-testResult, err := client.TestInvokeExecutor("executor-id", &scheduler0_go_client.TestInvocationRequestBody{
-    Job: &scheduler0_go_client.Job{
-        Spec:     "0 2 * * *",
-        Data:     "{\"action\":\"process_data\"}",
-        Timezone: "UTC",
-        RetryMax: 2,
-    },
-    Age:           "24h",                  // how old the synthetic entry should appear
-    ExecutionTime: "2024-01-15T02:00:00Z", // optional; defaults to now
+// GET /executors/{id}
+executor, err := client.GetExecutor("7")
+
+// PUT /executors/{id}. modifiedBy is required.
+updatedExecutor, err := client.UpdateExecutor("7", &scheduler0_go_client.ExecutorUpdateRequestBody{
+    Name:          "invoice-webhook",
+    Type:          scheduler0_go_client.ExecutorTypeWebhookURL,
+    WebhookURL:    "https://example.com/hooks/invoice-v2",
+    WebhookMethod: "POST",
+    ModifiedBy:    "user@example.com",
 })
-// HTTP 200 even when the target fails; check testResult.Data.Success.
-fmt.Println("invocation succeeded:", testResult.Data.Success)
+
+// DELETE /executors/{id} -> 204
+err = client.DeleteExecutor("7", &scheduler0_go_client.ExecutorDeleteRequestBody{DeletedBy: "user@example.com"})
+
+// POST /executors/{id}/test-invoke. Fires a synthetic job through the executor right now.
+// No job, execution log or schedule is created. Body is optional (pass nil). Local
+// executors cannot be test-invoked (400). HTTP 200 is returned even when the target
+// fails; check Data.Success / Data.Error.
+test, err := client.TestInvokeExecutor("7", &scheduler0_go_client.TestInvocationRequestBody{
+    Job:           &scheduler0_go_client.Job{Spec: "0 0 2 * * *", Data: `{"dryRun":true}`, Timezone: "UTC"},
+    Age:           "24h",                  // optional Go duration; how old the synthetic job looks
+    ExecutionTime: "2026-01-15T02:00:00Z", // optional; defaults to now
+})
+fmt.Println(test.Data.Success, test.Data.DurationMs, test.Data.Error)
 ```
 
-### Managing Local Executors
+### Local executors
 
-Local executors run jobs as shell commands on a machine you control. Register one, then the `scheduler0-cli` process pulls assigned jobs and reports results back.
+Local executors run a shell command on a machine you control. The `scheduler0` CLI registers one, pulls its jobs every minute and reports results; these are the three endpoints it uses.
 
 ```go
-// Register a local executor (the server sets the type to "local")
+// POST /local-executors -> 201 {id}. name, command and createdBy are required.
 reg, err := client.RegisterLocalExecutor(&scheduler0_go_client.LocalExecutorRegisterRequest{
-    Name:       "My Local Executor",
-    Command:    "/usr/local/bin/process-job.sh",
-    WorkingDir: "/home/deploy/app",
-    CreatedBy:  "user-1",
+    Name:       "build-box",
+    Command:    "/usr/local/bin/run-job.sh",
+    WorkingDir: "/srv/app",
+    CreatedBy:  "user@example.com",
 })
 executorID := reg.Data.ID
 
-// Pull the active jobs assigned to a local executor (also renews its lease)
-jobs, err := client.PullLocalExecutorJobs(executorID)
+// GET /local-executors/{id}/jobs -> active jobs assigned to this executor (also renews its lease)
+pulled, err := client.PullLocalExecutorJobs(executorID)
 
-// Report a batch of execution results (state: 0=scheduled, 1=success, 2=failed)
-result, err := client.ReportLocalExecutions(executorID, []scheduler0_go_client.LocalExecutionReport{
+// POST /local-executors/{id}/executions -> {committed}
+report, err := client.ReportLocalExecutions(executorID, []scheduler0_go_client.LocalExecutionReport{
     {
-        JobID:             1,
-        UniqueID:          "exec-1",
-        State:             1,
-        LastExecutionTime: "2025-01-01T00:00:00Z",
-        NextExecutionTime: "2025-01-02T00:00:00Z",
+        JobID:             pulled.Data[0].ID,
+        UniqueID:          "exec-2026-01-01T00:00:00Z-1",
+        State:             scheduler0_go_client.ExecutionStateSuccess, // 0 scheduled, 1 success, 2 failed
+        LastExecutionTime: "2026-01-01T00:00:00Z",
+        NextExecutionTime: "2026-01-02T00:00:00Z",
     },
 })
-_ = result.Data.Committed
+fmt.Println(report.Data.Committed)
 ```
 
-### Managing Projects
+### Executions
 
 ```go
-// List projects with pagination and ordering
-projects, err := client.ListProjects(scheduler0_go_client.ListProjectsParams{
-    AccountID:        0,                // Optional: Account ID override (0 uses client default)
-    Limit:            10,
-    Offset:           0,
-    OrderBy:          "date_created",    // Optional: Field to order by
-    OrderByDirection: "desc",            // Optional: Order direction ("asc" or "desc")
+// GET /executions. Every parameter is optional.
+executions, err := client.ListExecutions(scheduler0_go_client.ListExecutionsParams{
+    StartDate:      "2026-01-01T00:00:00Z", // RFC3339
+    EndDate:        "2026-01-31T23:59:59Z",
+    ProjectID:      12,
+    JobID:          42,
+    State:          "failed",               // scheduled | success | failed
+    OrderBy:        "dateCreated",          // dateCreated | lastExecutionDateTime | nextExecutionDateTime
+    OrderDirection: "DESC",                 // ASC | DESC (note: not orderByDirection)
+    Limit:          50,                     // server default 50
+    Offset:         0,
 })
-
-// Create a new project
-project := &scheduler0_go_client.ProjectRequestBody{
-    Name:        "My Project",
-    Description: "Project description",
+for _, e := range executions.Data.Executions {
+    fmt.Println(e.JobID, e.State, e.LastExecutionDatetime) // State: 0 scheduled, 1 success, 2 failed
 }
-result, err := client.CreateProject(project)
 
-// Get a specific project (projects are addressed by int64 ID)
-project, err := client.GetProject(int64(123))
-
-// Update a project
-update := &scheduler0_go_client.ProjectUpdateRequestBody{
-    Description: "Updated description",
-    ModifiedBy:  "user@example.com",
-}
-result, err := client.UpdateProject(int64(123), update)
-
-// Delete a project
-err := client.DeleteProject(int64(123), &scheduler0_go_client.ProjectDeleteRequestBody{
-    DeletedBy: "user@example.com",
+// GET /executions/analytics?startDate=YYYY-MM-DD&startTime=HH:MM[:SS] -> per-minute buckets
+analytics, err := client.GetDateRangeAnalytics(scheduler0_go_client.GetDateRangeAnalyticsParams{
+    StartDate: "2026-01-01",
+    StartTime: "00:00",
 })
+for _, p := range analytics.Data.Points {
+    fmt.Println(p.Date, p.Time, p.Scheduled, p.Success, p.Failed)
+}
+
+// GET /executions/totals -> lifetime scheduled/success/failed counts. 0 uses the client's account ID.
+totals, err := client.GetExecutionTotals(0)
+
+// POST /executions/cleanup-old-logs (execute scope). accountId must equal X-Account-ID.
+cleanup, err := client.CleanupOldExecutionLogs("123", 6) // delete logs older than 6 months
+fmt.Println(cleanup.Data.Message)
 ```
 
-### Managing Jobs
+### Credentials
 
 ```go
-// List jobs with pagination and ordering
-jobs, err := client.ListJobs(scheduler0_go_client.ListJobsParams{
-    ProjectID:        "",               // Optional: Project ID to filter by (empty string for all)
+// GET /credentials
+credentials, err := client.ListCredentials(scheduler0_go_client.ListCredentialsParams{
     Limit:            10,
     Offset:           0,
-    OrderBy:          "date_created",
+    OrderBy:          "date_created", // id | date_created | date_modified | created_by | modified_by | deleted_by | expires_at
     OrderByDirection: "desc",
 })
 
-// Create a single job
-job := &scheduler0_go_client.JobRequestBody{
-    ProjectID:     123,                    // Required
-    Timezone:      "UTC",                  // Required
-    ExecutorID:    &executorID,            // Optional
-    Data:          "job payload data",     // Optional
-    Spec:          "0 30 * * * *",         // Optional
-    StartDate:     "2024-01-01T00:00:00Z", // Optional
-    EndDate:       "2024-12-31T23:59:59Z", // Optional
-    TimezoneOffset: 0,                     // Optional
-    RetryMax:      3,                      // Optional
-    Status:        "active",               // Optional
-}
-result, err := client.CreateJob(job)
-
-// Create multiple jobs in a single batch request
-jobs := []scheduler0_go_client.JobRequestBody{
-    {
-        ProjectID:     123,
-        Timezone:      "UTC",
-        Data:          "job 1 payload",
-        Spec:          "0 30 * * * *",
-        StartDate:     "2024-01-01T00:00:00Z",
-        RetryMax:      3,
-    },
-    {
-        ProjectID:     123,
-        Timezone:      "UTC",
-        Data:          "job 2 payload",
-        Spec:          "0 0 * * * *",
-        StartDate:     "2024-01-01T00:00:00Z",
-        RetryMax:      5,
-    },
-}
-batchResult, err := client.BatchCreateJobs(jobs)
-
-// Get a specific job
-job, err := client.GetJob("job-id")
-
-// Update a job
-update := &scheduler0_go_client.JobUpdateRequestBody{
-    Data:   "updated payload",
-    Spec:   "0 0 * * * *",
-    Status: "inactive",
-}
-result, err := client.UpdateJob("job-id", update)
-
-// Delete a job
-err := client.DeleteJob("job-id", &scheduler0_go_client.JobDeleteRequestBody{
-    DeletedBy: "user@example.com",
+// POST /credentials -> 201. Scopes is required (non-empty, no duplicates). Granting "admin"
+// needs an admin credential or Basic auth. Expiry defaults to 90 days; ExpiresInSeconds
+// can shorten it (the server clamps the value).
+ttl := int64(8 * 60 * 60)
+cred, err := client.CreateCredential(&scheduler0_go_client.CredentialCreateRequestBody{
+    CreatedBy:        "user@example.com",
+    Scopes:           []string{scheduler0_go_client.ScopeRead, scheduler0_go_client.ScopeWrite},
+    ExpiresInSeconds: &ttl, // optional
 })
+// Data.PlaintextSecret is returned ONLY here. Store it now; it cannot be fetched again.
+fmt.Println(cred.Data.APIKey, cred.Data.PlaintextSecret, cred.Data.Scopes)
+
+// GET /credentials/{id} (no secret)
+one, err := client.GetCredential("9")
+
+// POST /credentials/{id}/archive -> 204. Disables the credential.
+err = client.ArchiveCredential("9", "user@example.com")
+
+// DELETE /credentials/{id} -> 204
+err = client.DeleteCredential("9", &scheduler0_go_client.CredentialDeleteRequestBody{DeletedBy: "user@example.com"})
 ```
 
-### AI-Powered Job Creation
+There is no rotate endpoint for credentials: create a new credential, switch your application over, then archive or delete the old one.
 
-Create job configurations from natural language prompts using AI:
+`UpdateCredential` (`PUT /credentials/{id}`) changes `Archived` and `ModifiedBy` only. `apiKey`, `apiSecret`, `scopes` and `expiresAt` are fixed at creation; the server rejects attempts to change the key or secret with `400`. `Archived` is `omitempty`, and the server treats an omitted `archived` as `false`, so `Archived: false` un-archives. Servers older than the credential-update fix answer every call with `200` and `success:false "api_key or api_secret cannot be empty"`; check `Success` if you target one.
+
+### AI
+
+All AI endpoints need the `execute` scope except the `GET`s (`read`). `POST /ai/prompt` and `POST /ai/schedule` count against the account's monthly prompt quota (`429` when exhausted) and, when using platform-hosted models, its AI credit balance (`402` when exhausted). `/ai/prompt/classify`, `/ai/suggestions/analyze` and `/ai/suggestions/time` do not invoke a model or consume credits.
+
+#### Generate job configurations from a prompt
+
+`POST /ai/prompt` runs the intent guardrail and then the configured model(s). If the guardrail rejects the prompt (or asks for clarification) the server returns `422` and the client returns a `*PromptSkippedError`.
 
 ```go
-import "errors"
-
-// Create job configurations from a natural language prompt
-promptRequest := &scheduler0_go_client.PromptJobRequest{
-    Prompt:     "Send weekly reports every Monday at 9 AM",
-    Purposes:   []string{"reporting", "communication"},
-    Events:     []string{"weekly_cycle"},
-    Recipients: []string{"team@example.com", "manager@example.com"},
+result, err := client.CreateJobFromPrompt(&scheduler0_go_client.PromptJobRequest{
+    Prompt:     "Send the weekly sales report every Monday at 9am",
+    Purposes:   []string{"reporting"},          // optional hints
+    Recipients: []string{"sales@example.com"},
     Channels:   []string{"email"},
-    Timezone:   "America/New_York", // Optional IANA timezone; defaults to "UTC" when omitted.
-}
-
-// Returns a *PromptResult containing providers and classification
-promptResult, err := client.CreateJobFromPrompt(promptRequest)
+    Timezone:   "America/New_York",             // optional IANA zone; invalid -> 400. Defaults to UTC.
+    Locale:     "en",                           // optional; the guardrail only runs for en* locales
+})
 if err != nil {
-    // Check whether the intent guardrail rejected/clarified the prompt
     var skipped *scheduler0_go_client.PromptSkippedError
-    if errors.As(err, &skipped) {
-        fmt.Printf("Prompt skipped: %s\n", skipped.Message)
-        if skipped.Classification != nil {
-            fmt.Printf("Decision: %s\n", skipped.Classification.Decision)
-            fmt.Printf("Reason: %s\n", skipped.Classification.Reason)
-        }
+    if errors.As(err, &skipped) { // or scheduler0_go_client.IsPromptSkippedError(err)
+        fmt.Println("rejected:", skipped.Message, skipped.Classification.Decision, skipped.Classification.Reason)
         return
     }
     log.Fatal(err)
 }
-
-// Inspect the intent classification
-if promptResult.Classification != nil {
-    fmt.Printf("Decision: %s\n", promptResult.Classification.Decision)
-    fmt.Printf("Reason: %s\n", promptResult.Classification.Reason)
-}
-
-// Process each provider's job configurations
-for _, provider := range promptResult.Providers {
-    fmt.Printf("Provider: %s / %s\n", provider.Provider, provider.Model)
-    fmt.Printf("Tokens used: %d\n", provider.TotalTokens)
-    for _, config := range provider.Jobs {
-        fmt.Printf("Kind: %s\n", config.Kind)
-        fmt.Printf("Cron Expression: %s\n", config.CronExpression)
-        if config.NextRunAt != nil {
-            fmt.Printf("Next Run At: %s\n", *config.NextRunAt)
-        }
-        
-        job := &scheduler0_go_client.JobRequestBody{
-            ProjectID: 123,
-            Timezone:  config.Timezone,
-            Spec:      config.CronExpression,
-            CreatedBy: "ai-prompt",
-        }
-        if config.StartDate != nil {
-            job.StartDate = *config.StartDate
-        }
-        if config.Subject != "" {
-            job.Data = fmt.Sprintf(`{"subject": "%s"}`, config.Subject)
-        }
-        
-        result, err := client.CreateJob(job)
-        if err != nil {
-            log.Printf("Failed to create job: %v", err)
-            continue
-        }
-        fmt.Printf("Job created with request ID: %s\n", result.Data)
+for _, p := range result.Providers {
+    fmt.Println(p.Provider, p.Model, p.TotalTokens, p.DurationMs)
+    for _, j := range p.Jobs {
+        fmt.Println(j.Kind, j.CronExpression, j.Timezone, j.Subject) // Kind: FOLLOW_UP | REMINDER | DIGEST
     }
 }
 ```
 
-### Classifying a prompt (without AI execution)
+The result is only a suggestion; create the jobs yourself with `CreateJob`/`BatchCreateJobs`, or use `ScheduleFromPrompt` to have the server do it.
 
-Run only the intent classifier — no model is invoked and no credits are consumed:
+#### Schedule jobs from a prompt in one call
+
+`POST /ai/schedule` -> `201`. Runs the same pipeline, resolves or creates a project, picks an executor (pinned `ExecutorID`, the account's only executor, or the best `Description`/`Tags` match) and creates the jobs synchronously. `409` when no executor/jobs can be resolved, `422` when the guardrail rejects the prompt (nothing is created).
 
 ```go
-clf, err := client.ClassifyPrompt(&scheduler0_go_client.ClassifyPromptRequest{
-    Prompt: "What is Kubernetes?",
+sched, err := client.ScheduleFromPrompt(&scheduler0_go_client.SchedulePromptRequest{
+    Prompt:    "Remind the sales team every Monday at 9am to review the pipeline",
+    Channels:  []string{"email"},
+    CreatedBy: "user@example.com", // required
+    // ProjectID: &projectID,                                                // reuse a project, or
+    // Project:   &scheduler0_go_client.ScheduleProjectInput{Name: "Sales"}, // create-or-reuse by name
+    // ExecutorID: &executorID,                                              // pin an executor
 })
 if err != nil {
+    if scheduler0_go_client.IsPromptSkippedError(err) {
+        log.Printf("rejected by guardrail: %v", err)
+        return
+    }
     log.Fatal(err)
 }
-fmt.Printf("Decision: %s\n", clf.Decision) // reject
-fmt.Printf("Reason:   %s\n", clf.Reason)
+fmt.Printf("project %d (created=%v), executor %d via %s, %d jobs\n",
+    sched.Project.ID, sched.ProjectCreated, sched.Executor.ID, sched.ExecutorMatchedBy, len(sched.Jobs))
 ```
 
-### Analyzing a conversation for suggestions
+#### Classify a prompt only
 
-Analyze an ordered set of conversation messages to detect commitments, requests, deadlines, and follow-ups. The analysis is deterministic and **English only** (a non-`en*` locale returns `UNSUPPORTED_LOCALE`):
+`POST /ai/prompt/classify`. English (`en*`) only; other locales return `400`. `503` when the classifier is not configured.
 
 ```go
-result, err := client.AnalyzeSuggestions(&scheduler0_go_client.AnalyzeSuggestionsRequest{
+clf, err := client.ClassifyPrompt(&scheduler0_go_client.ClassifyPromptRequest{Prompt: "What is Kubernetes?"})
+fmt.Println(clf.Decision, clf.Reason) // Decision: allow | clarify | reject
+```
+
+#### Analyze a conversation for follow-ups
+
+`POST /ai/suggestions/analyze`. Deterministic, English only (`400 UNSUPPORTED_LOCALE` otherwise). Request and response use snake_case JSON; suggestions/obligations are returned as generic maps because their shape is owned by the analyzer.
+
+```go
+analysis, err := client.AnalyzeSuggestions(&scheduler0_go_client.AnalyzeSuggestionsRequest{
     ConversationID: "conv_123",
     Messages: []scheduler0_go_client.SuggestionMessage{
         {Speaker: "Victor", Timestamp: "2026-07-17T10:00:00-04:00", Message: "I'll send the proposal tomorrow."},
     },
     Options: &scheduler0_go_client.SuggestionOptions{Locale: "en", DefaultTimezone: "America/Toronto"},
 })
-if err != nil {
-    log.Fatal(err)
-}
-for _, s := range result.Suggestions {
-    fmt.Printf("%v: %v\n", s["type"], s["reason"])
+for _, s := range analysis.Suggestions {
+    fmt.Println(s["type"], s["reason"])
 }
 ```
 
-### Recommending send times
+#### Recommend send times
 
-Recommend suitable future send times for a message given sender/recipient time zones, working hours, quiet hours, weekends, priority, and coverage rules. The engine is deterministic and does not send the message or create a job:
+`POST /ai/suggestions/time`. Deterministic time-zone math; nothing is sent or scheduled. `recipients[].timezone` is required. Validation errors come back as `400` with `{code, message, field}` in `data`.
 
 ```go
-result, err := client.SendTimeSuggestions(&scheduler0_go_client.SendTimeSuggestionsRequest{
+times, err := client.SendTimeSuggestions(&scheduler0_go_client.SendTimeSuggestionsRequest{
     Sender: &scheduler0_go_client.SendTimeParticipant{ID: "user_123", Timezone: "America/Toronto"},
     Recipients: []scheduler0_go_client.SendTimeParticipant{
         {ID: "user_456", Timezone: "America/Los_Angeles", Role: "primary"},
     },
     Message: &scheduler0_go_client.SendTimeMessage{Priority: "normal"},
 })
-if err != nil {
-    log.Fatal(err)
-}
-for _, s := range result.Suggestions {
-    fmt.Printf("%v (%v): %v\n", s["send_at"], s["score"], s["label"])
+for _, s := range times.Suggestions {
+    fmt.Println(s["send_at"], s["score"], s["label"])
 }
 ```
 
-### Scheduling from a prompt
-
-Turn a natural-language prompt into actually-scheduled jobs in one call. The server runs the prompt pipeline (intent guardrail + generation), resolves or creates a project, picks the executor whose `description`/`tags` best match the prompt (or uses a pinned `ExecutorID` / the account's only executor), and creates the jobs synchronously:
+#### Prompt-request log and model catalog
 
 ```go
-result, err := client.ScheduleFromPrompt(&scheduler0_go_client.SchedulePromptRequest{
-    Prompt:    "Remind the sales team every Monday at 9am to review the pipeline",
-    Channels:  []string{"email"},
-    CreatedBy: "victor",
-    // Optional: pin a project or executor, otherwise they are resolved/created for you.
-    // Project:    &scheduler0_go_client.ScheduleProjectInput{Name: "Sales reminders"},
-    // ExecutorID: &executorID,
+// GET /ai/prompt-requests (read). Fields are snake_case. limit defaults to 25, max 100.
+logPage, err := client.ListPromptRequests(scheduler0_go_client.ListPromptRequestsParams{
+    Provider:  "anthropic",            // optional
+    Status:    "success",              // optional: success | failed | skipped_intent ...
+    StartDate: "2026-01-01T00:00:00Z", // optional RFC3339 (query param "start")
+    Order:     "DESC",                 // ASC | DESC
+    Limit:     20,
 })
-if err != nil {
-    if scheduler0_go_client.IsPromptSkippedError(err) {
-        log.Printf("prompt rejected by intent guardrail: %v", err)
-        return
+for _, r := range logPage.Data.Requests {
+    fmt.Println(r.DateCreated, r.Provider, r.Model, r.Status, r.TotalTokens, r.EstimatedCostUSD)
+}
+
+// GET /ai/models (read) -> map[provider][]ModelInfo. Only these models are accepted by PUT /ai/settings.
+models, err := client.GetAIModels()
+for provider, list := range models.Data {
+    for _, m := range list {
+        fmt.Println(provider, m.ID, m.DisplayName, m.Default)
     }
-    log.Fatal(err)
 }
-fmt.Printf("project %d (created=%v), executor %d matched by %s, %d jobs created\n",
-    result.Project.ID, result.ProjectCreated, result.Executor.ID, result.ExecutorMatchedBy, len(result.Jobs))
 ```
 
-Executor selection uses each executor's `Description` and `Tags` (set them on `CreateExecutor` / `UpdateExecutor`). When the account has more than one executor and no `ExecutorID` is pinned, the model picks the best match; if it cannot confidently match, the call fails with `409` (pin an `ExecutorID` or refine descriptions/tags).
+#### AI settings (bring your own keys)
 
-**Note**: The AI prompt endpoint requires:
-- Valid API credentials (API Key + Secret)
-- Account ID header
-- Sufficient credits (1 credit per prompt execution)
-
-The `Timezone` field is optional. When omitted, the AI assumes `UTC`. When set to an IANA name (e.g. `"America/New_York"`), the AI interprets relative phrases like *"9am tomorrow"* in that timezone and emits `nextRunAt` / `startDate` / `endDate` with the matching numeric offset. Invalid timezone strings are rejected by the API with `400 Bad Request`.
-
-### Inspecting the AI prompt-request log
-
-List the account's persisted AI prompt executions with filtering and pagination:
+`GET`/`PUT /ai/settings` operate on the account in `X-Account-ID`; the `accountID` argument is sent as that header. Keys are masked as `"•"` on read. `ActiveModels` is ordered (primary first, then fallbacks); each provider listed must have a key stored or supplied in the same request.
 
 ```go
-promptLog, err := client.ListPromptRequests(scheduler0_go_client.ListPromptRequestsParams{
-    Provider: "anthropic",   // Optional: filter by provider
-    Status:   "success",     // Optional: filter by status
-    Order:    "DESC",        // Optional: "ASC" or "DESC"
-    Limit:    20,
-    Offset:   0,
+settings, err := client.GetAccountAISettings("123")
+fmt.Println(settings.Data.ActiveModels, settings.Data.AnthropicAPIKey) // key is "•" when set
+
+saved, err := client.UpsertAccountAISettings("123", &scheduler0_go_client.AccountAISettings{
+    ActiveModels: []scheduler0_go_client.ActiveModel{
+        {Provider: "anthropic", Model: "claude-sonnet-4-5"},
+        {Provider: "openai", Model: "gpt-4o"},
+    },
+    AnthropicAPIKey: "sk-ant-...",
+    OpenAIAPIKey:    "sk-...",
 })
-if err != nil {
-    log.Fatal(err)
-}
-for _, r := range promptLog.Data.Requests {
-    fmt.Printf("%s: %s (%d tokens)\n", r.Status, r.Provider, r.TotalTokens)
+fmt.Println(saved.Data.Message) // the PUT returns a message, not the saved settings
+```
+
+### Features
+
+```go
+// GET /features (read)
+features, err := client.ListFeatures()
+for _, f := range features.Data {
+    fmt.Println(f.ID, f.Name)
 }
 ```
 
-### Managing Async Tasks
+### Accounts (self-hosting / admin scope)
+
+These routes require an `admin` credential or Basic auth. For API-key callers the path `{id}` must equal `X-Account-ID` (`403` otherwise); the `accountID` argument is used for both.
 
 ```go
-// Get async task status
-task, err := client.GetAsyncTask("request-id")
+account, err := client.CreateAccount(&scheduler0_go_client.AccountCreateRequestBody{Name: "Acme"})          // POST /accounts -> 201
+got, err := client.GetAccount("123")                                                                         // GET /accounts/{id}
+renamed, err := client.UpdateAccount("123", &scheduler0_go_client.AccountUpdateRequestBody{Name: "Acme Inc"}) // PUT /accounts/{id}
+
+// Feature flags
+added, err := client.AddFeatureToAccount("123", &scheduler0_go_client.FeatureRequest{FeatureID: 1}) // PUT /accounts/{id}/feature -> 201
+err = client.RemoveFeatureFromAccount("123", &scheduler0_go_client.FeatureRequest{FeatureID: 1})  // DELETE /accounts/{id}/feature -> 204
+err = client.AddAllFeaturesToAccount("123")                                                        // PUT /accounts/{id}/features/all
+err = client.RemoveAllFeaturesFromAccount("123")                                                   // DELETE /accounts/{id}/features/all
+
+// Monthly execution counter
+count, err := client.GetAccountExecutionCount("123")                 // GET /accounts/{id}/execution-count
+bumped, err := client.IncreaseAccountExecutionCount("123", 1000)     // PUT /accounts/{id}/execution-count {count} -> {newExecutionCount}
+
+// AI usage for the current period: prompt/classify limit-used-remaining and estimated cost
+usage, err := client.GetAIUsage("123")                                // GET /accounts/{id}/ai/usage
+fmt.Println(usage.Data.Prompt.Used, usage.Data.Prompt.Limit, usage.Data.EstimatedCostUSD)
+
+// Platform token balance
+tokens, err := client.GetAccountTokens("123")                         // GET /accounts/{id}/tokens -> {tokens}
+balance, err := client.AddAccountTokens("123", 500)                   // PUT /accounts/{id}/tokens/add {amount} -> {newBalance}
+
+// POST /account/rotate-secret: re-encrypt stored secrets after changing the server SecretKey.
+// Update and reload the server's SecretKey first, then pass the previous key.
+rotated, err := client.RotateSecret("<old-hex-secret-key>")
+fmt.Println(rotated.Data.CredentialsRotated, rotated.Data.ExecutorsRotated, rotated.Data.AISettingsRotated)
 ```
 
-### Health Monitoring
+### Cluster (self-hosting / admin scope or Basic auth + `X-Peer`)
 
 ```go
-// Check cluster health (no authentication required)
+nodes, err := client.ListNodes()                                   // GET /cluster/list-nodes -> []Node{NodeId, NodeAddress, ClientAddress}
+status, err := client.AddNode(2, "10.0.0.2:7071", "http://10.0.0.2:9091") // POST /cluster/add-node?nodeId=&nodeAddress=&clientAddress=
+status, err = client.RemoveNode(2)                                 // POST /cluster/remove-node?nodeId=
+status, err = client.PromoteNode(2)                                // POST /cluster/promote-node?nodeId=
+status, err = client.DemoteNode(2)                                 // POST /cluster/demote-node?nodeId=
+status, err = client.TransferLeadership()                          // POST /cluster/transfer-leadership
+status, err = client.ForceRebuildCluster(1)                        // POST /cluster/force-rebuild?seedNodeId=
+status, err = client.AddSelfToCluster()                            // POST /cluster/add-self
+status, err = client.RemoveSelfFromCluster()                       // POST /cluster/remove-self
+status, err = client.ResetRaftState()                              // POST /cluster/reset-raft (node exits afterwards)
+fmt.Println(status.Data["status"])
+
+// Debug dumps; Data is json.RawMessage because the shape is internal
+queue, err := client.DumpScheduleQueue()                           // GET /cluster/dump/schedule-queue
+cache, err := client.DumpJobExecutionsCache()                      // GET /cluster/dump/job-executions-cache
+queues, err := client.DumpJobQueues()                              // GET /cluster/dump/job-queues
+versions, err := client.DumpJobQueueVersions()                     // GET /cluster/dump/job-queue-versions
+
+// Backup / restore -> 202 {status, requestId}
+backup, err := client.BackupDatabase()                             // POST /cluster/backup
+restore, err := client.RestoreDatabase("backup-2026-01-01.db")     // POST /cluster/restore {filePath}
+fmt.Println(backup.Data["requestId"], restore.Data["status"])
+```
+
+### Health
+
+```go
+// GET /healthcheck. Sent without any auth headers.
 health, err := client.Healthcheck()
-if err != nil {
-    log.Fatal(err)
-}
-fmt.Printf("Leader: %s\n", health.Data.LeaderAddress)
-fmt.Printf("Raft State: %s\n", health.Data.RaftStats.State)
+fmt.Println(health.Data.LeaderAddress, health.Data.LeaderID, health.Data.RaftStats.State)
 ```
 
-## Data Types
+## Reference: enums
 
-### Job Status
-- `"active"` - Job is active and will be executed
-- `"inactive"` - Job is inactive and will not be executed
-
-### Executor Types
-- `"webhook_url"` - HTTP webhook executor
-- `"cloud_function"` - Cloud function executor
-
-### Webhook Methods
-- `"GET"`, `"POST"`, `"PUT"`, `"DELETE"`
-
-### Job Creation Behavior
-- **Single Job Creation**: `CreateJob()` internally uses batch creation with a single job
-- **Batch Job Creation**: `BatchCreateJobs()` allows creating multiple jobs in one API call
-- **Backend API**: The `/api/v1/jobs` POST endpoint expects an array of jobs for batch processing
-- **Response Format**: Job creation returns `BatchJobResponse` with HTTP 202 Accepted status and a `Data` field containing the request ID (string) for async task tracking
-- **Async Tracking**: Use the request ID with `GetAsyncTask()` to track job creation status
-
-## Error Handling
-
-The client returns Go errors for API errors. Check the error message for details:
-
-```go
-result, err := client.CreateJob(job)
-if err != nil {
-    if strings.Contains(err.Error(), "API error: 400") {
-        // Handle bad request
-    } else if strings.Contains(err.Error(), "API error: 401") {
-        // Handle unauthorized
-    } else if strings.Contains(err.Error(), "API error: 403") {
-        // Handle forbidden
-    } else if strings.Contains(err.Error(), "API error: 404") {
-        // Handle not found
-    }
-    log.Fatal(err)
-}
-```
-
-## Account ID Requirements
-
-Most endpoints require the `X-Account-ID` header. The following endpoints require account ID:
-- `/api/v1/jobs/*`
-- `/api/v1/projects/*`
-- `/api/v1/credentials/*`
-- `/api/v1/executors/*`
-- `/api/v1/async-tasks/*`
-- `/api/v1/executions`
-- `/api/v1/ai/prompt` (AI prompt endpoint)
-- `/api/v1/ai/suggestions/analyze` (conversation suggestions endpoint)
-- `/api/v1/ai/suggestions/time` (send-time suggestions endpoint)
-- `/api/v1/ai/schedule` (prompt-to-scheduled-jobs endpoint)
-
-Account endpoints (`/api/v1/accounts/*`) and features (`/api/v1/features`) do not require account ID.
-
-### Per-Request Account ID Override
-
-You can override the Account ID set during client initialization on a per-request basis by including it in the params struct for list methods:
-
-```go
-// Override Account ID for a specific request
-projects, err := client.ListProjects(scheduler0_go_client.ListProjectsParams{
-    AccountID: 456,  // Overrides the client's default Account ID
-    Limit:     10,
-    Offset:    0,
-})
-```
-
-For other methods, the Account ID can be set in the request body's `AccountID` field (which is excluded from JSON serialization but used for the `X-Account-ID` header).
-
-## Credits and AI Features
-
-The AI prompt endpoint (`/api/v1/ai/prompt`) requires:
-- **Credits**: 1 credit per prompt execution
-- **Authentication**: Valid API Key + Secret credentials
-- **Account ID**: Required header for credit deduction
-
-Credits are automatically deducted when the prompt is successfully processed. If the prompt processing fails after credit deduction, credits are not refunded.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Concept              | Values                                                                                   |
+|----------------------|------------------------------------------------------------------------------------------|
+| Credential scope     | `read`, `write`, `execute`, `admin` (`Scope*` constants)                                  |
+| Executor type        | `cloud_function`, `webhook_url`, `local` (`ExecutorType*` constants)                     |
+| Webhook method       | `GET`, `POST`, `PUT`, `DELETE`                                                            |
+| Job status           | `active`, `inactive` (`JobStatus*` constants)                                             |
+| Execution state      | `0` scheduled, `1` success, `2` failed (`ExecutionState*` constants); as a `/executions` filter: `scheduled`, `success`, `failed` |
+| Async task state     | `0` not started, `1` in progress, `2` success, `3` failed (`AsyncTask*` constants)        |
+| Intent decision      | `allow`, `clarify`, `reject`                                                              |
+| Prompt job kind      | `FOLLOW_UP`, `REMINDER`, `DIGEST`                                                         |
+| Executor matched by  | `pinned`, `only`, `llm` (`ScheduleResult.ExecutorMatchedBy`)                              |
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Run all tests
-go test -v ./...
-
-# Run tests with race detection
-go test -v -race ./...
-
-# Run tests with coverage
-go test -v -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
+go build ./...
+go vet ./...
+go test ./...
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

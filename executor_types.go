@@ -1,5 +1,12 @@
 package scheduler0_go_client
 
+// Executor types accepted in ExecutorRequestBody.Type / ExecutorUpdateRequestBody.Type.
+const (
+	ExecutorTypeCloudFunction = "cloud_function"
+	ExecutorTypeWebhookURL    = "webhook_url"
+	ExecutorTypeLocal         = "local"
+)
+
 // Executor represents a job executor
 type Executor struct {
 	ID        int64  `json:"id"`

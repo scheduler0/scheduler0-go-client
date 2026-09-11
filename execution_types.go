@@ -1,5 +1,12 @@
 package scheduler0_go_client
 
+// Execution states returned in Execution.State and sent in LocalExecutionReport.State.
+const (
+	ExecutionStateScheduled = 0
+	ExecutionStateSuccess   = 1
+	ExecutionStateFailed    = 2
+)
+
 type Execution struct {
 	ID                    int64   `json:"id"`
 	AccountID             int64   `json:"accountId"`
@@ -30,17 +37,19 @@ type PaginatedExecutionsResponse struct {
 	} `json:"data"`
 }
 
+// ListExecutionsParams are the query parameters for GET /executions. Every field is
+// optional; zero values are omitted from the query.
 type ListExecutionsParams struct {
-	StartDate      string
-	EndDate        string
+	StartDate      string // RFC3339
+	EndDate        string // RFC3339
 	ProjectID      int64
 	JobID          int64
-	AccountID      int64
-	Limit          int
+	AccountID      int64 // Account ID override (0 uses client default)
+	Limit          int   // Server default 50 when 0
 	Offset         int
-	State          string
-	OrderBy        string
-	OrderDirection string
+	State          string // "scheduled" | "success" | "failed"
+	OrderBy        string // "dateCreated" | "lastExecutionDateTime" | "nextExecutionDateTime"
+	OrderDirection string // "ASC" | "DESC" (default DESC)
 }
 
 type DateRangeAnalyticsPoint struct {
